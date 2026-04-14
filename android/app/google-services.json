@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "225524547522",
+    "project_id": "campus-price-monitor",
+    "storage_bucket": "campus-price-monitor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225524547522:android:f893e87dfde36a2015605b",
+        "android_client_info": {
+          "package_name": "com.example.campus_price_monitor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7LR8eAPjYw7fQGWvt5fPyepoQAp8X6a8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
