@@ -6,6 +6,8 @@ class Shop {
   final String campus;
   final bool isVerified;
   final String createdBy;
+  final double? latitude;
+  final double? longitude;
   // NEW: Flag to tell Admin if this might be a duplicate
   final bool isPotentialDuplicate;
 
@@ -16,6 +18,8 @@ class Shop {
     required this.location,
     required this.campus,
     required this.createdBy,
+    this.latitude,
+    this.longitude,
     this.isVerified = false,
     this.isPotentialDuplicate = false, // Default to false
   });
@@ -29,6 +33,8 @@ class Shop {
       'campus': campus,
       'isVerified': isVerified,
       'createdBy': createdBy,
+      'latitude': latitude,
+      'longitude': longitude,
       'isPotentialDuplicate': isPotentialDuplicate, // Added this
     };
   }
@@ -43,6 +49,8 @@ class Shop {
       campus: map['campus'] ?? '',
       isVerified: map['isVerified'] ?? false,
       createdBy: map['createdBy'] ?? 'admin',
+      latitude: map['latitude']?.toDouble(),
+      longitude: map['longitude']?.toDouble(),
       // Added this with a fallback to false
       isPotentialDuplicate: map['isPotentialDuplicate'] ?? false,
     );

@@ -51,6 +51,7 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
 
                 // Image fix
                 Container(
+                  width: MediaQuery.of(context).size.width,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.transparent,

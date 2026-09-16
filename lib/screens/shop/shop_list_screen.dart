@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../services/location_service.dart';
 import 'shop_detail_screen.dart';
 import 'add_shop_screen.dart';
 
@@ -13,18 +15,33 @@ class ShopListScreen extends StatefulWidget {
 }
 
 class _ShopListScreenState extends State<ShopListScreen> {
+  Position? _currentPosition;
+
   @override
   void initState() {
     super.initState();
-    // 1. Tell the app to fetch shops as soon as this screen opens
+    _initData();
+  }
+
+  void _initData() async {
+    // 1. Tell the app to fetch shops
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<AuthProvider>(context, listen: false).userModel;
       if (user != null) {
-        // We pass the university AND the user's ID to see their own pending shops
         Provider.of<ShopProvider>(context, listen: false)
             .fetchShopsByUniversity(user.university, user.uid);
       }
     });
+
+    // 2. Get current location for distance calculation
+    try {
+      Position? position = await LocationService.getCurrentLocation();
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      debugPrint("Location permission denied or disabled: $e");
+    }
   }
 
   @override
@@ -75,7 +92,23 @@ class _ShopListScreenState extends State<ShopListScreen> {
                 children: [
                   Text("Campus: ${shop.campus}"),
                   Text(shop.location, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                  // 3. Show "Waiting for Approval" text if needed
+                  
+                  // NEW: Display Distance
+                  if (_currentPosition != null && shop.latitude != null && shop.longitude != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 14, color: Colors.green),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${LocationService.calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, shop.latitude!, shop.longitude!).toStringAsFixed(1)} km away",
+                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   if (isPending)
                     const Padding(
                       padding: EdgeInsets.only(top: 4.0),
@@ -86,7 +119,17 @@ class _ShopListScreenState extends State<ShopListScreen> {
                     ),
                 ],
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (shop.latitude != null)
+                    IconButton(
+                      icon: const Icon(Icons.directions, color: Colors.blue),
+                      onPressed: () => LocationService.navigateTo(shop.latitude!, shop.longitude!),
+                    ),
+                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                ],
+              ),
               onTap: () {
                 Navigator.push(
                   context,

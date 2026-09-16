@@ -1,10 +1,10 @@
 import 'package:campus_price_monitor/constants/app_colors.dart';
-import 'package:campus_price_monitor/screens/auth/log2.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart'; // 1. IMPORT THE SHOP PROVIDER
 import '../main_navigation/main_navigation.dart';
+import 'login_or_signUp_screen.dart';
 import 'login_screen.dart';
 import 'package:iconly/iconly.dart';
 
@@ -33,31 +33,24 @@ class _SplashScreenState extends State<SplashScreen> {
     // 2. Get current auth & shop state
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final shopProvider = Provider.of<ShopProvider>(context, listen: false);
-
-    // 3. Check if the user's data is loaded and available || // Check if user is already logged in
     final user = authProvider.userModel;
 
     if (user != null) {
-
-      // Before navigating, fetch all shops.
-      // We pass 'isAdmin: user.isAdmin' so the provider knows to fetch ALL pending shops for admins.
+      // Pre-fetch shops for the logged-in user
       shopProvider.fetchShopsByUniversity(
         user.university,
         user.uid,
         isAdmin: user.isAdmin,
       );
 
-      // User is logged in, navigate to the main app screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MainNavigation()),
       );
     } else {
-      // No user found, navigate to the Login screen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) =>  RegisterOrSignUpScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const RegisterOrSignUpScreen()),
       );
     }
   }

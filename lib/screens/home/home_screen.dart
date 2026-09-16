@@ -10,6 +10,7 @@ import '../../providers/price_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../shop/report_price_screen.dart';
 import '../complaints/complaint_form_screen.dart';
+import '../shop/shop_map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -53,6 +54,14 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.green[800],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.map),
+            tooltip: "Explore Map",
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ShopMapScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => _handleLogout(context),

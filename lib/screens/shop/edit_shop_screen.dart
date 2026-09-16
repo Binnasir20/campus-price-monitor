@@ -6,20 +6,33 @@ import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'location_picker_screen.dart';
 
-class AddShopScreen extends StatefulWidget {
-  const AddShopScreen({super.key});
+class EditShopScreen extends StatefulWidget {
+  final Shop shop;
+
+  const EditShopScreen({super.key, required this.shop});
 
   @override
-  State<AddShopScreen> createState() => _AddShopScreenState();
+  State<EditShopScreen> createState() => _EditShopScreenState();
 }
 
-class _AddShopScreenState extends State<AddShopScreen> {
+class _EditShopScreenState extends State<EditShopScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _locationController = TextEditingController();
+  late TextEditingController _nameController;
+  late TextEditingController _locationController;
   String? _selectedCampus;
   LatLng? _pickedLocation;
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.shop.name);
+    _locationController = TextEditingController(text: widget.shop.location);
+    _selectedCampus = widget.shop.campus;
+    if (widget.shop.latitude != null && widget.shop.longitude != null) {
+      _pickedLocation = LatLng(widget.shop.latitude!, widget.shop.longitude!);
+    }
+  }
 
   @override
   void dispose() {
@@ -32,7 +45,10 @@ class _AddShopScreenState extends State<AddShopScreen> {
     final LatLng? result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const LocationPickerScreen(),
+        builder: (context) => LocationPickerScreen(
+          initialLat: _pickedLocation?.latitude,
+          initialLng: _pickedLocation?.longitude,
+        ),
       ),
     );
 
@@ -45,65 +61,44 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
   void _submitShop() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_pickedLocation == null) {
-      _showError("Please select a location on the map.");
-      return;
-    }
-
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
     final shopProvider = Provider.of<ShopProvider>(context, listen: false);
-    final user = authProvider.userModel;
-
-    // Security check
-    if (user == null || !user.isAdmin) return;
 
     setState(() => _isSaving = true);
 
-    final newShop = Shop(
-      id: '',
+    final updatedShop = Shop(
+      id: widget.shop.id,
       name: _nameController.text.trim(),
-      university: user.university.trim(),
+      university: widget.shop.university,
       location: _locationController.text.trim(),
       campus: _selectedCampus!,
-      createdBy: user.uid,
-      isVerified: true,
-      isPotentialDuplicate: false,
-      latitude: _pickedLocation!.latitude,
-      longitude: _pickedLocation!.longitude,
+      createdBy: widget.shop.createdBy,
+      isVerified: widget.shop.isVerified,
+      isPotentialDuplicate: widget.shop.isPotentialDuplicate,
+      latitude: _pickedLocation?.latitude,
+      longitude: _pickedLocation?.longitude,
     );
 
     try {
-      await shopProvider.addNewShop(newShop);
-      shopProvider.fetchShopsByUniversity(user.university, user.uid, isAdmin: true);
+      await shopProvider.updateShop(updatedShop);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Official shop added!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Shop updated successfully!"), backgroundColor: Colors.green),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       setState(() => _isSaving = false);
-      _showError("Failed to save shop.");
+      _showError("Failed to update shop.");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<AuthProvider>(context).userModel;
-    final bool isAdmin = user?.isAdmin == true;
-
-
-    if (!isAdmin) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Access Denied")),
-        body: const Center(child: Text("Only Admins can access this page.")),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Official Shop"),
+        title: const Text("Edit Shop"),
         backgroundColor: Colors.blueGrey[900],
         foregroundColor: Colors.white,
       ),
@@ -114,10 +109,8 @@ class _AddShopScreenState extends State<AddShopScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Register New Campus Shop",
+              const Text("Edit Shop Details",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              const Text("Visible to all students immediately.",
-                  style: TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 30),
 
               TextFormField(
@@ -129,7 +122,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
               TextFormField(
                 controller: _locationController,
-                decoration: _inputDecoration("Location", Icons.map_outlined),
+                decoration: _inputDecoration("Location/Address", Icons.map_outlined),
                 validator: (val) => val!.isEmpty ? "Enter location" : null,
               ),
               const SizedBox(height: 20),
@@ -146,7 +139,6 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
               const SizedBox(height: 20),
 
-              // Location Picker Button
               OutlinedButton.icon(
                 onPressed: _pickLocation,
                 icon: Icon(
@@ -179,7 +171,6 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
               const SizedBox(height: 40),
 
-              // The button is only reachable if isAdmin is true
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(60),
@@ -190,7 +181,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                 onPressed: _isSaving ? null : _submitShop,
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("SAVE OFFICIAL SHOP", style: TextStyle(fontWeight: FontWeight.bold)),
+                    : const Text("UPDATE SHOP", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),

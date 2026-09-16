@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../model/shop_model.dart';
 import '../../providers/shop_provider.dart';
+import '../shop/edit_shop_screen.dart';
 
 class ManageShopsScreen extends StatelessWidget {
   const ManageShopsScreen({super.key});
@@ -52,6 +53,15 @@ class ManageShopsScreen extends StatelessWidget {
                 icon: const Icon(Icons.check_circle, color: Colors.green),
                 onPressed: () => _confirmVerify(context, shop, provider),
               ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EditShopScreen(shop: shop)),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () => _confirmDelete(context, shop, provider),

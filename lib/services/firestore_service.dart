@@ -73,6 +73,10 @@ class FirestoreService {
     await _db.collection('shops').doc(shopId).update({'isVerified': true});
   }
 
+  Future<void> updateShop(Shop shop) async {
+    await _db.collection('shops').doc(shop.id).update(shop.toMap());
+  }
+
   Future<void> deleteShop(String shopId) async {
     await _db.collection('shops').doc(shopId).delete();
   }

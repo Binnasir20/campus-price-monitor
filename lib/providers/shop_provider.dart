@@ -53,6 +53,14 @@ class ShopProvider with ChangeNotifier {
     await _firestoreService.verifyShop(shopId);
   }
 
+  Future<void> updateShop(Shop shop) async {
+    try {
+      await _firestoreService.updateShop(shop);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> deleteShop(String shopId) async {
     try {
       await _firestoreService.deleteShop(shopId);
