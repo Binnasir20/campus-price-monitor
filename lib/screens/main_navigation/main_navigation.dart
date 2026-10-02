@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'package:iconly/iconly.dart';
+import '../../constants/app_colors.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 import '../shop/shop_list_screen.dart';
@@ -38,20 +39,21 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        selectedItemColor: Colors.green,
+        selectedItemColor: Color(AppColors.bgColor).withOpacity(0.5),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+
+            icon: Icon(IconlyLight.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.store),
+            icon: Icon(IconlyLight.work),
             label: 'Shops',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(IconlyLight.profile),
             label: 'Profile',
           ),
         ],

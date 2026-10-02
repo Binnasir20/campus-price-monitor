@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
@@ -19,14 +20,24 @@ class AdminDashboard extends StatelessWidget {
         mainAxisSpacing: 15,
         children: [
 
-          // 1. MANAGE SHOPS (General list)
+          // 1. MANAGE SHOPS
           _buildAdminCard(
             context,
             title: "Manage Shops",
             subtitle: "Edit or Delete",
-            icon: Icons.storefront,
+            icon: IconlyLight.work,
             color: Colors.blue,
             onTap: () => Navigator.pushNamed(context, '/manage_shops'),
+          ),
+
+          // 2. MANAGE ITEMS & CATEGORIES
+          _buildAdminCard(
+            context,
+            title: "Manage Items",
+            subtitle: "Categories & Prices",
+            icon: IconlyLight.category,
+            color: Colors.orange,
+            onTap: () => Navigator.pushNamed(context, '/manage_items'),
           ),
 
           // 3. COMPLAINTS
@@ -34,7 +45,7 @@ class AdminDashboard extends StatelessWidget {
             context,
             title: "Complaints",
             subtitle: "User Reports",
-            icon: Icons.report_problem,
+            icon: IconlyLight.danger,
             color: Colors.redAccent,
             onTap: () => Navigator.pushNamed(context, '/admin_complaints'),
           ),
@@ -44,7 +55,7 @@ class AdminDashboard extends StatelessWidget {
             context,
             title: "Users",
             subtitle: "Permissions",
-            icon: Icons.people,
+            icon: IconlyLight.user,
             color: Colors.teal,
             onTap: () {
               // Future: Navigator.pushNamed(context, '/manage_users');
@@ -55,7 +66,7 @@ class AdminDashboard extends StatelessWidget {
     );
   }
 
-  // Simplified Card Builder
+  // Card Builder
   Widget _buildAdminCard(BuildContext context,
       {required String title,
         required String subtitle,

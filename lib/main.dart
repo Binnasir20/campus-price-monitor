@@ -4,6 +4,7 @@ import 'package:campus_price_monitor/providers/item_provider.dart';
 import 'package:campus_price_monitor/providers/price_provider.dart';
 import 'package:campus_price_monitor/providers/shop_provider.dart';
 import 'package:campus_price_monitor/screens/admin/manage_shop_screen.dart';
+import 'package:campus_price_monitor/screens/admin/manage_items_screen.dart';
 import 'package:campus_price_monitor/screens/auth/splash_screen.dart';
 import 'package:campus_price_monitor/screens/auth/login_screen.dart'; // ADD THIS
 import 'package:campus_price_monitor/screens/complaints/admin_complaint_screen.dart';
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomeScreen(),
         '/manage_shops': (context) => const ManageShopsScreen(),
         '/admin_complaints': (context) => const AdminComplaintScreen(),
+        '/manage_items': (context) => const ManageItemsScreen(),
         // ADD MORE ROUTES HERE
       },
     );

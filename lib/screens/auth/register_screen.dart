@@ -74,10 +74,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelStyle: TextStyle(
                   color: Colors.grey.shade500,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
                 labelText: "Enter full name",
-                prefixIcon: Icon(IconlyLight.profile),
+                prefixIcon: Icon(IconlyLight.profile,color: Colors.grey,size: 20,),
                 border: _inputBorder(),
                 focusedBorder: _inputBorder(),
               ),
@@ -97,7 +97,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   fontSize: 14,
                 ),
                 labelText: "Email",
-                prefixIcon: Icon(IconlyLight.message),
+                prefixIcon: Icon(IconlyLight.message,color: Colors.grey,size: 20,),
                 border: _inputBorder(),
                 focusedBorder: _inputBorder(),
               ),
@@ -112,10 +112,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelStyle: TextStyle(
                   color: Colors.grey.shade500,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
                 labelText: "Password",
-                prefixIcon: Icon(IconlyLight.lock),
+                prefixIcon: Icon(IconlyLight.lock,color: Colors.grey,size: 20,),
                 border: _inputBorder(),
                 focusedBorder: _inputBorder(),
                 suffixIcon: IconButton(
@@ -123,6 +123,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _isPasswordVisible
                         ? Icons.visibility
                         : Icons.visibility_off,
+                    size: 20,
+                    color: Colors.grey,
                   ),
                   onPressed: () {
                     setState(() {
@@ -139,19 +141,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // --- UNIVERSITY DROPDOWN ---
             DropdownButtonFormField<String>(
               value: _selectedUniversity,
-              hint: const Text("Select University"),
+              hint: const Text("Select University",style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12
+              ),),
               decoration: InputDecoration(
                 labelStyle: TextStyle(
                   color: Colors.grey,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
-                prefixIcon: Icon(IconlyLight.discovery),
+                prefixIcon: Icon(IconlyLight.discovery,color: Colors.grey,size: 20,),
                 labelText: "University",
                 border: _inputBorder(),
                 focusedBorder: _inputBorder()
               ),
               items: _universityData.keys
-                  .map((uni) => DropdownMenuItem(value: uni, child: Text(uni)))
+                  .map((uni) => DropdownMenuItem(value: uni, child: Text(uni,style: TextStyle(
+                color: Colors.black,
+                fontSize: 12,
+              ),)))
                   .toList(),
               onChanged: (value) {
                 if (value == null) return;
@@ -166,22 +174,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             DropdownButtonFormField<String?>(
               value: _selectedCampus,
-              hint: const Text("Select Campus"),
+              hint: const Text("Select Campus",style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),),
               isExpanded: true,
               decoration: InputDecoration(
                 labelStyle: TextStyle(
                   color: Colors.grey,
-                  fontSize: 14,
+                  fontSize: 12,
                 ),
                 labelText: "Campus",
-                prefixIcon: Icon(IconlyLight.location),
+                prefixIcon: Icon(IconlyLight.location,color: Colors.grey,size: 20,),
                 border: _inputBorder(),
                 focusedBorder: _inputBorder(),
               ),
               items: _availableCampuses.map((campus) {
                 return DropdownMenuItem(
                   value: campus,
-                  child: Text(campus),
+                  child: Text(campus,style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 12,
+                  ),),
                 );
               }).toList(),
               onChanged: _selectedUniversity == null
@@ -232,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Center(
                         child: Text("Register",style: TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                         ),),
                       )

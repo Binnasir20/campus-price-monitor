@@ -32,6 +32,10 @@ class ShopProvider with ChangeNotifier {
       _shops = shopData;
       _isLoading = false;
       notifyListeners();
+    }, onError: (error) {
+      print("Shop fetch error: $error");
+      _isLoading = false;
+      notifyListeners();
     });
   }
 

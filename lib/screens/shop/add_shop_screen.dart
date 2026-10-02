@@ -45,10 +45,6 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
   void _submitShop() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_pickedLocation == null) {
-      _showError("Please select a location on the map.");
-      return;
-    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final shopProvider = Provider.of<ShopProvider>(context, listen: false);
@@ -68,8 +64,8 @@ class _AddShopScreenState extends State<AddShopScreen> {
       createdBy: user.uid,
       isVerified: true,
       isPotentialDuplicate: false,
-      latitude: _pickedLocation!.latitude,
-      longitude: _pickedLocation!.longitude,
+      latitude: _pickedLocation?.latitude,
+      longitude: _pickedLocation?.longitude,
     );
 
     try {

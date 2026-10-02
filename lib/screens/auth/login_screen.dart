@@ -85,8 +85,12 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(
                 labelText: "Email",
                 labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                prefixIcon: const Icon(IconlyLight.message),
-                border: _inputBorder(),
+                prefixIcon: const Icon(IconlyLight.message,color: Colors.grey,size: 20,),
+                border:  OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(color: Colors.grey.withOpacity(0.1),
+                    )
+                ),
                 focusedBorder: _inputBorder(),
               ),
             ),
@@ -102,14 +106,17 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(
                 labelText: "Password",
                 labelStyle: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                prefixIcon: const Icon(IconlyLight.lock),
+                prefixIcon: const Icon(IconlyLight.lock,color: Colors.grey,size: 20,),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : IconlyLight.hide,
+                    _isPasswordVisible ? Icons.visibility : IconlyLight.hide,size: 20,color: Colors.grey,
                   ),
                   onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                 ),
-                border: _inputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.1)),
+                ),
                 focusedBorder: _inputBorder(),
               ),
             ),
@@ -175,12 +182,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.grey.shade700,
                   ),
                   children: [
-                    const TextSpan(text: "Don't have an account? "),
+                    const TextSpan(text: "Don't have an account? ",style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12
+                    )),
                     TextSpan(
                       text: "Register",
                       style: TextStyle(
                         color: Color(AppColors.bgColor),
                         fontWeight: FontWeight.w600,
+                        fontSize: 14
                       ),
                     ),
                   ],

@@ -13,6 +13,21 @@ class FirestoreService {
         snapshot.docs.map((doc) => Item.fromMap(doc.data(), doc.id)).toList());
   }
 
+  // 1b. ADD A NEW ITEM (Admin only)
+  Future<void> addItem(Item item) async {
+    await _db.collection('items').add(item.toMap());
+  }
+
+  // 1c. UPDATE AN ITEM (Admin only)
+  Future<void> updateItem(Item item) async {
+    await _db.collection('items').doc(item.id).update(item.toMap());
+  }
+
+  // 1d. DELETE AN ITEM (Admin only)
+  Future<void> deleteItem(String itemId) async {
+    await _db.collection('items').doc(itemId).delete();
+  }
+
   // 2. GET PRICES FOR A SPECIFIC UNIVERSITY
   Stream<List<Price>> getPricesByUniversity(String universityName) {
     return _db

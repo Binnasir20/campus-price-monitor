@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:iconly/iconly.dart';
 
-// Project Imports
+import '../../constants/app_colors.dart';
+import '../../model/item_model.dart';
 import '../../model/price_model.dart';
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/item_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../shop/report_price_screen.dart';
@@ -20,142 +24,487 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String selectedCategory = "All";
+
+  bool showFab = true;
+
+  final ScrollController scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
+
+    scrollController.addListener(_onScroll);
+
     _loadInitialData();
   }
 
-  /// Triggered once when screen opens to fill the lists
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (scrollController.position.userScrollDirection ==
+        ScrollDirection.reverse &&
+        showFab) {
+      setState(() {
+        showFab = false;
+      });
+    } else if (scrollController.position.userScrollDirection ==
+        ScrollDirection.forward &&
+        !showFab) {
+      setState(() {
+        showFab = true;
+      });
+    }
+  }
+
   void _loadInitialData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final user = auth.userModel;
+      final user = context.read<AuthProvider>().userModel;
 
       if (user != null) {
-        // Fetch Prices and Shops for the specific university
-        Provider.of<PriceProvider>(context, listen: false)
+        context.read<ItemProvider>().fetchItems();
+
+        context
+            .read<PriceProvider>()
             .fetchPricesByUniversity(user.university);
 
-        Provider.of<ShopProvider>(context, listen: false)
-            .fetchShopsByUniversity(user.university, user.uid, isAdmin: user.isAdmin);
+        context.read<ShopProvider>().fetchShopsByUniversity(
+          user.university,
+          user.uid,
+          isAdmin: user.isAdmin,
+        );
       }
     });
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+
+    if (hour < 12) {
+      return "Good morning";
+    }
+
+    if (hour < 17) {
+      return "Good afternoon";
+    }
+
+    return "Good evening";
   }
 
   @override
   Widget build(BuildContext context) {
     final priceProvider = Provider.of<PriceProvider>(context);
+    final itemProvider = Provider.of<ItemProvider>(context);
     final user = Provider.of<AuthProvider>(context).userModel;
+
+    final userName = user?.name ?? "User";
+
+    Map<String, List<MapEntry<Price, Item>>> groupedData = {
+      "Food": [],
+      "Stationery": [],
+      "Electronics": [],
+      "Other": [],
+    };
+
+    for (var price in priceProvider.prices) {
+      final item = itemProvider.items.firstWhere(
+        (item) =>
+            item.id.trim().toLowerCase() == price.itemId.trim().toLowerCase() ||
+            item.name.trim().toLowerCase() == price.itemId.trim().toLowerCase(),
+        orElse: () => Item(
+          id: '',
+          name: price.itemId,
+          category: 'Other',
+        ),
+      );
+
+      // Normalize category for grouping
+      String check = item.category.trim().toLowerCase();
+      String normalized = "";
+
+      if (check == "food" ||
+          check.contains("food") ||
+          check.contains("drink") ||
+          check.contains("snack") ||
+          check.contains("grocer") ||
+          check.contains("provision") ||
+          check.contains("eat")) {
+        normalized = "Food";
+      } else if (check == "stationery" ||
+          check.contains("station") ||
+          check.contains("book") ||
+          check.contains("pen") ||
+          check.contains("write") ||
+          check.contains("office") ||
+          check.contains("copy")) {
+        normalized = "Stationery";
+      } else if (check == "electronics" ||
+          check.contains("elect") ||
+          check.contains("phone") ||
+          check.contains("gadget") ||
+          check.contains("tech") ||
+          check.contains("laptop") ||
+          check.contains("charge")) {
+        normalized = "Electronics";
+      }
+
+      if (selectedCategory == 'All' || selectedCategory == normalized) {
+        groupedData[normalized]?.add(MapEntry(price, item));
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(user != null ? "${user.university} Monitor" : "Campus Prices"),
-        backgroundColor: Colors.green[800],
+        automaticallyImplyLeading: false,
+        toolbarHeight: 60,
+        backgroundColor: Color(AppColors.bgColor).withOpacity(0.7),
         foregroundColor: Colors.white,
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.white24,
+              child: Text(
+                userName.isNotEmpty
+                    ? userName[0].toUpperCase()
+                    : "U",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 10),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "${_getGreeting()},",
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+
         actions: [
           IconButton(
-            icon: const Icon(Icons.map),
-            tooltip: "Explore Map",
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ShopMapScreen()),
-            ),
+            icon: const Icon(IconlyLight.location),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (c) => const ShopMapScreen(),
+                ),
+              );
+            },
           ),
+
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _handleLogout(context),
+            icon: const Icon(IconlyLight.logout),
+            onPressed: () => _handleLogout(),
           ),
         ],
       ),
 
-      body: priceProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : priceProvider.prices.isEmpty
-          ? _buildEmptyState(user?.university ?? "campus")
-          : RefreshIndicator(
-        onRefresh: () async => _loadInitialData(),
-        child: ListView.builder(
-          padding: const EdgeInsets.all(10),
-          itemCount: priceProvider.prices.length,
-          itemBuilder: (context, index) => _buildPriceCard(context, priceProvider.prices[index]),
-        ),
+      body: priceProvider.isLoading || itemProvider.isLoading
+          ? const Center(
+        child: CircularProgressIndicator(),
+      )
+          : Column(
+        children: [
+          // CATEGORY FILTERS
+          Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              children: [
+                for (final cat in [
+                  "All",
+                  "Food",
+                  "Stationery",
+                  "Electronics",
+                  "Other",
+                ])
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(
+                        cat,
+                        style: TextStyle(
+                          color: selectedCategory == cat
+                              ? Colors.white
+                              : Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                      selected: selectedCategory == cat,
+                      onSelected: (s) {
+                        setState(() {
+                          selectedCategory = cat;
+                        });
+                      },
+                      selectedColor:
+                      Color(AppColors.bgColor).withOpacity(0.7),
+                      labelStyle: TextStyle(
+                        color: selectedCategory == cat
+                            ? Colors.white
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // PRICE LIST
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                _loadInitialData();
+              },
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                ),
+                children: [
+                  for (final group in [
+                    'Food',
+                    'Stationery',
+                    'Electronics',
+                    'Other',
+                  ])
+                    if (groupedData[group]!.isNotEmpty)
+                      Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: 20,
+                              bottom: 8,
+                              left: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  group == 'Food'
+                                      ? IconlyLight.buy
+                                      : group == 'Stationery'
+                                      ? IconlyLight.edit
+                                      : group ==
+                                      'Electronics'
+                                      ? IconlyLight.game
+                                      : IconlyLight.category,
+                                  color: Colors.green[800],
+                                  size: 20,
+                                ),
+
+                                const SizedBox(width: 8),
+
+                                Text(
+                                  group.toUpperCase(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[900],
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          for (final entry in groupedData[group]!)
+                            _buildPriceCard(entry.key, entry.value),
+                        ],
+                      ),
+
+                  if (groupedData.values
+                      .every((list) => list.isEmpty))
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 100,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'No prices reported for ${user?.university ?? 'campus'} yet.',
+                          style: const TextStyle(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
 
-      // Logic: Show different buttons for Admin vs Student
-      floatingActionButton: _buildContextualButtons(user),
-    );
-  }
-
-  /// Separates Admin tools from Student tools
-  Widget _buildContextualButtons(user) {
-    final bool isAdmin = user?.isAdmin ?? false;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (isAdmin) ...[
-          // --- ADMIN ONLY SECTION ---
-          FloatingActionButton.extended(
-            heroTag: "admin_manage",
-            onPressed: () => Navigator.pushNamed(context, '/manage_shops'),
-            label: const Text("Manage Shops"),
-            icon: const Icon(Icons.store_mall_directory),
-            backgroundColor: Colors.blueGrey[800],
+      // FLOATING ACTION BUTTONS
+      floatingActionButton: showFab
+          ? user?.isAdmin == true
+          ? FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            '/manage_shops',
+          );
+        },
+        label: const Text(
+          'Manage Shops',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            color: Colors.white,
           ),
-        ] else ...[
-          // --- STUDENT ONLY SECTION ---
+        ),
+        icon: const Icon(
+          IconlyLight.home,
+          color: Colors.white,
+          size: 20,
+        ),
+        backgroundColor:
+        Color(AppColors.bgColor).withOpacity(0.7),
+      )
+          : Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
           FloatingActionButton.extended(
-            heroTag: "report",
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportPriceScreen())),
-            label: const Text("Report Price"),
-            icon: const Icon(Icons.add_shopping_cart),
-            backgroundColor: Colors.green[700],
+            heroTag: 'report',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                  const ReportPriceScreen(),
+                ),
+              );
+            },
+            label: const Text('Report Price'),
+            icon: const Icon(IconlyLight.buy),
+            backgroundColor: Colors.green,
           ),
+
           const SizedBox(height: 10),
+
           FloatingActionButton.extended(
-            heroTag: "complain",
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ComplaintFormScreen())),
-            label: const Text("Complain"),
-            icon: const Icon(Icons.warning_amber_rounded),
+            heroTag: 'complain',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                  const ComplaintFormScreen(),
+                ),
+              );
+            },
+            label: const Text('Complain'),
+            icon: const Icon(
+              IconlyLight.danger,
+            ),
             backgroundColor: Colors.redAccent,
           ),
         ],
-      ],
+      )
+          : null,
     );
   }
 
-  Widget _buildPriceCard(BuildContext context, Price price) {
-    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
-    final shop = shopProvider.shops.cast<Shop?>().firstWhere((s) => s?.id == price.shopId, orElse: () => null);
+  Widget _buildPriceCard(Price price, Item item) {
+    final shops = context.read<ShopProvider>().shops;
+
+    final shop = shops.cast<Shop?>().firstWhere(
+          (shop) => shop?.id == price.shopId,
+      orElse: () => null,
+    );
 
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.green.shade50,
-          child: const Icon(Icons.shopping_bag_outlined, color: Colors.green),
+          backgroundColor:
+          Colors.white.withOpacity(0.1),
+          radius: 20,
+          child: Icon(
+            IconlyLight.bag,
+            color: Color(AppColors.bgColor),
+          ),
         ),
-        title: Text(price.itemId, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text("At: ${shop?.name ?? 'Unknown Shop'}\nUpdated: ${DateFormat('MMM d').format(price.updatedAt)}"),
-        trailing: Text("₦${price.price.toStringAsFixed(0)}",
-            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18)),
+
+        title: Text(
+          item.name,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+        ),
+
+        subtitle: Text(
+          "${shop?.name ?? 'Unknown Shop'} • "
+              "${DateFormat('MMM d').format(price.updatedAt)}",
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 12,
+          ),
+        ),
+
+        trailing: Text(
+          "₦${price.price.toStringAsFixed(0)}",
+          style: TextStyle(
+            color: Color(AppColors.bgColor),
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyState(String uni) {
-    return Center(child: Text("No prices reported for $uni yet.", style: const TextStyle(color: Colors.grey)));
-  }
+  void _handleLogout() async {
+    final auth = context.read<AuthProvider>();
 
-  void _handleLogout(BuildContext context) async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    Provider.of<PriceProvider>(context, listen: false).clearPrices();
-    Provider.of<ShopProvider>(context, listen: false).clearShops();
+    context.read<PriceProvider>().clearPrices();
+    context.read<ShopProvider>().clearShops();
+
     await auth.logout();
-    if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+            (route) => false,
+      );
+    }
   }
 }

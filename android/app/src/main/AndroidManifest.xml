@@ -10,7 +10,7 @@
 
         <!-- Add your Google Maps API Key here -->
         <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_API_KEY_HERE"/>
+            android:value="AIzaSyA9frRmZi7AWT6bCLMO7QXoIsayXnBnO84"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -51,3 +51,4 @@
         </intent>
     </queries>
 </manifest>
+

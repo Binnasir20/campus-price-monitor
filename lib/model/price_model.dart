@@ -4,7 +4,7 @@ class Price {
   final String id;
   final String itemId;
   final String shopId;
-  final String university; // Added for easy querying
+  final String university;
   final double price;
   final DateTime updatedAt;
   final String reportedBy;

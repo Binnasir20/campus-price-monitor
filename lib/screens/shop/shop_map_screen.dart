@@ -196,8 +196,8 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
           zoom: 12,
         ),
         onMapCreated: _onMapCreated,
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
+      //  myLocationEnabled: true,
+       // myLocationButtonEnabled: true,
         markers: _markers,
       ),
     );
