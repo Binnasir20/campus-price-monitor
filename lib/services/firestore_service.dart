@@ -16,6 +16,7 @@ class FirestoreService {
   // 1b. ADD A NEW ITEM (Admin only)
   Future<void> addItem(Item item) async {
     await _db.collection('items').add(item.toMap());
+
   }
 
   // 1c. UPDATE AN ITEM (Admin only)
@@ -35,8 +36,22 @@ class FirestoreService {
         .where('university', isEqualTo: universityName.trim())
         .orderBy('updatedAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-        snapshot.docs.map((doc) => Price.fromMap(doc.data(), doc.id)).toList());
+        .map((snapshot) {
+      print("========== PRICES FROM FIRESTORE ==========");
+      print("University: ${universityName.trim()}");
+      print("Number of price documents: ${snapshot.docs.length}");
+
+      for (var doc in snapshot.docs) {
+        print("PRICE DOC ID: ${doc.id}");
+        print("ITEM ID: ${doc.data()['itemId']}");
+      }
+
+      print("==========================================");
+
+      return snapshot.docs
+          .map((doc) => Price.fromMap(doc.data(), doc.id))
+          .toList();
+    });
   }
 
   // 3. SUBMIT A COMPLAINT

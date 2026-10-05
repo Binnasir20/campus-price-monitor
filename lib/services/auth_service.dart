@@ -31,7 +31,7 @@ class AuthService {
       await _db.collection('users').doc(result.user!.uid).set(newUser.toMap());
       return result;
     } on FirebaseAuthException catch (e) {
-      // Provide cleaner error messages for common issues
+      // Error messages for common issues
       if (e.code == 'email-already-in-use') {
         throw 'This email is already registered.';
       } else if (e.code == 'weak-password') {

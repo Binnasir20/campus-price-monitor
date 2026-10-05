@@ -68,9 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (user != null) {
         context.read<ItemProvider>().fetchItems();
 
-        context
-            .read<PriceProvider>()
-            .fetchPricesByUniversity(user.university);
+        context.read<PriceProvider>().fetchPricesByUniversity(user.university);
 
         context.read<ShopProvider>().fetchShopsByUniversity(
           user.university,
@@ -124,7 +122,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Normalize category for grouping
       String check = item.category.trim().toLowerCase();
-      String normalized = "";
+      String normalized = "Other";
+
+      print("ITEM: ${item.name}");
+      print("CATEGORY FROM FIRESTORE: '${item.category}'");
+      print("NORMALIZED CHECK: '$check'");
+
+
+
 
       if (check == "food" ||
           check.contains("food") ||
@@ -150,6 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
           check.contains("laptop") ||
           check.contains("charge")) {
         normalized = "Electronics";
+      } else{
+        normalized = "Other";
       }
 
       if (selectedCategory == 'All' || selectedCategory == normalized) {
@@ -370,6 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: showFab
           ? user?.isAdmin == true
           ? FloatingActionButton.extended(
+        heroTag: 'manageShops',
         onPressed: () {
           Navigator.pushNamed(
             context,

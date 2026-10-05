@@ -6,7 +6,7 @@ class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   UserModel? _userModel;
 
-  // Initialize isLoading to true because we check for user on startup
+  // We initialize isLoading to true because we check for user on startup
   bool _isLoading = true;
   String _errorMessage = "";
 

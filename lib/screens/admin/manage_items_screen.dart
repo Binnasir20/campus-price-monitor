@@ -121,7 +121,8 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                     category: _selectedCategory,
                   );
 
-                  await itemProvider.addItem(newItem);
+                  final success =   await itemProvider.addItem(newItem);
+                  print("ITEM ADD SUCCESS: $success");
 
                   // 2. Set the base/official price in the selected shop
                   final newPrice = Price(
