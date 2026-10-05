@@ -59,6 +59,7 @@ class _ShopListScreenState extends State<ShopListScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: Text("${user?.university } Shops",style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.bold

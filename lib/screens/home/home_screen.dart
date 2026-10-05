@@ -168,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         toolbarHeight: 60,
-        backgroundColor: Color(AppColors.bgColor).withOpacity(0.7),
+        backgroundColor: Color(AppColors.bgColor),
         foregroundColor: Colors.white,
         title: Row(
           children: [
@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         });
                       },
                       selectedColor:
-                      Color(AppColors.bgColor).withOpacity(0.7),
+                      Color(AppColors.bgColor),
                       labelStyle: TextStyle(
                         color: selectedCategory == cat
                             ? Colors.white

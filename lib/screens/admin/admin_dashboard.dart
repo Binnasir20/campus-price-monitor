@@ -50,6 +50,16 @@ class AdminDashboard extends StatelessWidget {
             onTap: () => Navigator.pushNamed(context, '/admin_complaints'),
           ),
 
+          // 4. REPORTED PRICES
+          _buildAdminCard(
+            context,
+            title: "Reported Prices",
+            subtitle: "Review User Reports",
+            icon: IconlyLight.document,
+            color: Colors.purple,
+            onTap: () => Navigator.pushNamed(context, '/reported_prices'),
+          ),
+
           // 4. USERS
           _buildAdminCard(
             context,

@@ -3,6 +3,7 @@ import '../model/item_model.dart';
 import '../model/price_model.dart';
 import '../model/complaint_model.dart';
 import '../model/shop_model.dart';
+import '../model/price_report_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -97,6 +98,83 @@ class FirestoreService {
     await _db.collection('complaints').doc(complaintId).delete();
   }
 
+  // 9. SUBMIT A PRICE REPORT
+  Future<void> submitPriceReport(PriceReport report) async {
+    await _db.collection('priceReports').add(report.toMap());
+  }
+
+// 10. GET PRICE REPORTS FOR ADMIN
+  Stream<List<PriceReport>> getPriceReportsByUniversity(String universityName) {
+    return _db
+        .collection('priceReports')
+        .where('university', isEqualTo: universityName.trim())
+        .orderBy('reportedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => PriceReport.fromMap(doc.data(), doc.id))
+        .toList());
+  }
+
+// 11. UPDATE PRICE REPORT STATUS
+  Future<void> updatePriceReportStatus(
+      String reportId, String status) async {
+    await _db.collection('priceReports').doc(reportId).update({
+      'status': status,
+    });
+  }
+  Future<String> getUserName(String uid) async {
+    // First, check if the UID is the document ID
+    final userDoc = await _db.collection('users').doc(uid).get();
+
+    if (userDoc.exists) {
+      final data = userDoc.data();
+
+      return data?['name'] ?? 'Unknown user';
+    }
+
+    // If not, search for the UID inside the document
+    final snapshot = await _db
+        .collection('users')
+        .where('uid', isEqualTo: uid)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final data = snapshot.docs.first.data();
+
+      return data['name'] ?? 'Unknown user';
+    }
+
+    return 'Unknown user';
+  }
+   // mE
+  Future<Map<String, String>> getUserNames() async {
+    final snapshot = await _db.collection('users').get();
+
+    final Map<String, String> userNames = {};
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      final uid = data['uid'] ?? doc.id;
+      final name = data['name'] ?? 'Unknown user';
+
+      userNames[uid] = name;
+    }
+
+    return userNames;
+  }
+  // 10b. GET PRICE REPORTS SUBMITTED BY A USER
+  Stream<List<PriceReport>> getPriceReportsByUser(String uid) {
+    return _db
+        .collection('priceReports')
+        .where('reportedBy', isEqualTo: uid)
+        .orderBy('reportedAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => PriceReport.fromMap(doc.data(), doc.id))
+        .toList());
+  }
   // --- ADMIN METHODS ---
 
   Future<void> verifyShop(String shopId) async {

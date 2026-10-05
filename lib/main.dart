@@ -9,6 +9,8 @@ import 'package:campus_price_monitor/screens/auth/splash_screen.dart';
 import 'package:campus_price_monitor/screens/auth/login_screen.dart'; // ADD THIS
 import 'package:campus_price_monitor/screens/complaints/admin_complaint_screen.dart';
 import 'package:campus_price_monitor/screens/home/home_screen.dart';   // ADD THIS
+import 'package:campus_price_monitor/screens/reported_screen/reported_item_screen.dart';
+import 'package:campus_price_monitor/screens/reported_screen/reported_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -55,6 +57,8 @@ class MyApp extends StatelessWidget {
         '/manage_shops': (context) => const ManageShopsScreen(),
         '/admin_complaints': (context) => const AdminComplaintScreen(),
         '/manage_items': (context) => const ManageItemsScreen(),
+        '/reported_prices': (context) => const ReportedScreen(),
+        '/reported_items': (context) => const ReportedItemsScreen(),
         // ADD MORE ROUTES HERE
       },
     );

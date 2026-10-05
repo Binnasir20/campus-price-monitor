@@ -52,12 +52,12 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Welcome to",style: TextStyle(
-                fontSize: 12,
-               fontWeight: FontWeight.bold,
-              fontStyle: FontStyle.italic
+                fontSize: 11,
+              fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w300
             ),),
             Text("${widget.shop.name}'s shop",style: TextStyle(
-                fontSize: 13,
+                fontSize: 14,
               fontWeight: FontWeight.bold,
             ),),
           ],

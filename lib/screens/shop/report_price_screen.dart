@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
-import '../../model/price_model.dart';
+
+import '../../constants/app_colors.dart';
+import '../../model/price_report_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/price_provider.dart';
 
 class ReportPriceScreen extends StatefulWidget {
-  final String? initialShopId; // To pre-select if coming from ShopDetail
+  final String? initialShopId;
 
-  const ReportPriceScreen({super.key, this.initialShopId});
+  const ReportPriceScreen({
+    super.key,
+    this.initialShopId,
+  });
 
   @override
   State<ReportPriceScreen> createState() => _ReportPriceScreenState();
@@ -18,6 +24,7 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _itemController = TextEditingController();
   final _priceController = TextEditingController();
+
   String? _selectedShopId;
 
   @override
@@ -33,55 +40,51 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
     super.dispose();
   }
 
-  void _submitPrice() async {
-    if (!_formKey.currentState!.validate() || _selectedShopId == null) {
-      _showSnackBar("Please fill all fields", Colors.orange);
+  void _submitReport() async {
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final priceProv = Provider.of<PriceProvider>(context, listen: false);
-    final user = auth.userModel; // Get the user object
+    final priceProvider =
+    Provider.of<PriceProvider>(context, listen: false);
 
-    // Check if user is null before proceeding
+    final user = auth.userModel;
+
     if (user == null) {
-      _showSnackBar("Session expired. Please log in again.", Colors.red);
+      _showSnackBar("Please log in again", Colors.red);
       return;
     }
 
-    final newPrice = Price(
+    final report = PriceReport(
       id: '',
       itemId: _itemController.text.trim(),
       shopId: _selectedShopId!,
-      university: user.university, // Make sure this is "UDUS"
-      price: double.parse(_priceController.text),
-      updatedAt: DateTime.now(),
+      university: user.university,
+      price: double.parse(_priceController.text.trim()),
       reportedBy: user.uid,
+      reportedAt: DateTime.now(),
+      status: 'pending',
     );
 
-    try {
-      // We add a print here to see if it even starts
-      print("Attempting to report price for ${user.university}...");
+    final success = await priceProvider.submitPriceReport(report);
 
-      bool success = await priceProv.reportPrice(newPrice);
+    if (!mounted) return;
 
-      if (mounted) {
-        if (success) {
-          _showSnackBar("Price reported successfully!", Colors.green);
-          Navigator.pop(context);
-        } else {
-          _showSnackBar("Failed to report: Check your connection", Colors.red);
-        }
-      }
-    } catch (e) {
-      print("CRITICAL ERROR: $e");
-      _showSnackBar("Error: $e", Colors.red);
+    if (success) {
+      _showSnackBar("Price reported successfully", Colors.green);
+      Navigator.pop(context);
+    } else {
+      _showSnackBar("Failed to submit report", Colors.red);
     }
   }
 
-  void _showSnackBar(String msg, Color color) {
+  void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
     );
   }
 
@@ -90,18 +93,21 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
     final shops = Provider.of<ShopProvider>(context).shops;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Report a Price")),
+      appBar: AppBar(
+        title: const Text(
+          "Report a Price",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Select the shop where you found this price:"),
-              const SizedBox(height: 10),
-
-              // 1. SHOP SELECTOR
               DropdownButtonFormField<String>(
                 value: _selectedShopId,
                 decoration: const InputDecoration(
@@ -109,56 +115,82 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.store),
                 ),
-                items: shops.map((s) {
-                  return DropdownMenuItem(value: s.id, child: Text(s.name));
+                items: shops.map((shop) {
+                  return DropdownMenuItem(
+                    value: shop.id,
+                    child: Text(shop.name),
+                  );
                 }).toList(),
-                onChanged: (val) => setState(() => _selectedShopId = val),
-                validator: (val) => val == null ? "Please select a shop" : null,
+                onChanged: (value) {
+                  setState(() {
+                    _selectedShopId = value;
+                  });
+                },
+                validator: (value) {
+                  return value == null
+                      ? "Please select a shop"
+                      : null;
+                },
               ),
+
               const SizedBox(height: 20),
 
-              // 2. ITEM NAME
               TextFormField(
                 controller: _itemController,
                 decoration: const InputDecoration(
-                  labelText: "What are you reporting? (e.g. Bread)",
+                  labelText: "Item name (e.g. Bread)",
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.shopping_basket),
                 ),
-                validator: (val) => val!.isEmpty ? "Enter item name" : null,
+                validator: (value) {
+                  return value == null || value.trim().isEmpty
+                      ? "Enter item name"
+                      : null;
+                },
               ),
+
               const SizedBox(height: 20),
 
-              // 3. PRICE
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(
                   labelText: "Price (₦)",
                   border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.payments),
+                  prefixIcon: Icon(IconlyLight.discount),
                 ),
                 keyboardType: TextInputType.number,
-                validator: (val) {
-                  if (val!.isEmpty) return "Enter price";
-                  if (double.tryParse(val) == null) return "Enter a valid number";
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Enter price";
+                  }
+
+                  if (double.tryParse(value.trim()) == null) {
+                    return "Enter a valid number";
+                  }
+
                   return null;
                 },
               ),
+
               const SizedBox(height: 30),
 
-              // 4. SUBMIT BUTTON
               Consumer<PriceProvider>(
-                builder: (context, prov, _) {
-                  return prov.isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                builder: (context, provider, child) {
+                  return provider.isLoading
+                      ? const CircularProgressIndicator()
                       : ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(55),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Color(AppColors.bgColor),
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: _submitPrice,
-                    child: const Text("SUBMIT PRICE REPORT"),
+                    onPressed: _submitReport,
+                    child: const Text(
+                      "SUBMIT PRICE REPORT",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   );
                 },
               ),

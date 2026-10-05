@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
+
+import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../providers/complaint_provider.dart';
 import '../admin/admin_dashboard.dart';
+import '../reported_screen/reported_item_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -20,27 +24,30 @@ class ProfileScreen extends StatelessWidget {
 
     if (user != null) {
       if (user.isAdmin) {
-        // ADMIN: Sees the total count for the university
+        // ADMIN: Sees the total official prices
         reportCount = priceProv.prices.length;
         complaintCount = complaintProv.userComplaints.length;
       } else {
-        // STUDENT: Sees only their personal counts
-        reportCount = priceProv.prices.where((p) => p.reportedBy == user.uid).length;
-        complaintCount = complaintProv.userComplaints.where((c) => c.userId == user.uid).length;
+        // STUDENT: Sees only their own submitted price reports
+        reportCount = priceProv.myPriceReports.length;
+
+        complaintCount = complaintProv.userComplaints
+            .where((c) => c.userId == user.uid)
+            .length;
       }
     }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("My Profile"),
-        backgroundColor: Colors.green,
+        backgroundColor:  Color(AppColors.bgColor),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // 1. HEADER SECTION (User Info)
+            // 1. HEADER SECTION
             _buildHeader(user),
 
             const SizedBox(height: 20),
@@ -48,27 +55,48 @@ class ProfileScreen extends StatelessWidget {
             // 2. CAMPUS INFO
             _buildInfoCard(user),
 
-            // 3. ADMIN DASHBOARD BUTTON (Only for Admin)
+            // 3. MY REPORTS
+            if (user != null && !user.isAdmin)
+              _buildMyReportsLink(context),
+
+            // 4. ADMIN DASHBOARD
             if (user?.isAdmin == true) _buildAdminLink(context),
 
             const SizedBox(height: 30),
 
-            // 4. STATISTICS SECTION
+            // 5. STATISTICS SECTION
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user?.isAdmin == true ? "University Overview" : "Your Contributions",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    user?.isAdmin == true
+                        ? "University Overview"
+                        : "Your Contributions",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+
                   const SizedBox(height: 15),
+
                   Row(
                     children: [
-                      _buildStatBox("Prices", reportCount.toString(), Colors.blue),
+                      _buildStatBox(
+                        "Prices",
+                        reportCount.toString(),
+                        Colors.blue,
+                      ),
+
                       const SizedBox(width: 15),
-                      _buildStatBox("Complaints", complaintCount.toString(), Colors.red),
+
+                      _buildStatBox(
+                        "Complaints",
+                        complaintCount.toString(),
+                        Colors.red,
+                      ),
                     ],
                   ),
                 ],
@@ -77,7 +105,7 @@ class ProfileScreen extends StatelessWidget {
 
             const SizedBox(height: 50),
 
-            // 5. LOGOUT BUTTON
+            // 6. LOGOUT BUTTON
             _buildLogoutButton(context),
           ],
         ),
@@ -91,20 +119,38 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 30),
-      decoration: const BoxDecoration(color: Colors.green),
+      decoration: BoxDecoration(
+        color:  Color(AppColors.bgColor),
+      ),
       child: Column(
         children: [
           const CircleAvatar(
             radius: 45,
             backgroundColor: Colors.white,
-            child: Icon(Icons.person, size: 50, color: Colors.green),
+            child: Icon(
+              Icons.person,
+              size: 50,
+              color: Colors.green,
+            ),
           ),
+
           const SizedBox(height: 10),
+
           Text(
             user?.name ?? "User",
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
-          Text(user?.email ?? "", style: const TextStyle(color: Colors.white70)),
+
+          Text(
+            user?.email ?? "",
+            style: const TextStyle(
+              color: Colors.white70,
+            ),
+          ),
         ],
       ),
     );
@@ -114,17 +160,66 @@ class ProfileScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              _infoRow(Icons.school, "University", user?.university ?? "N/A"),
+              _infoRow(
+                Icons.school,
+                "University",
+                user?.university ?? "N/A",
+              ),
+
               const Divider(),
-              _infoRow(Icons.location_on, "Campus", user?.campus ?? "N/A"),
+
+              _infoRow(
+                IconlyLight.location,
+                "Campus",
+                user?.campus ?? "N/A",
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMyReportsLink(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: ListTile(
+        tileColor: Colors.blue.shade50,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        leading: const Icon(
+          Icons.receipt_long,
+          color: Colors.blue,
+        ),
+        title: const Text(
+          "My Reports",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: const Text(
+          "View your submitted price reports",
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 14,
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ReportedItemsScreen(),
+            ),
+          );
+        },
       ),
     );
   }
@@ -134,16 +229,38 @@ class ProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: ListTile(
         tileColor: Colors.blueGrey.shade50,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: const Icon(Icons.dashboard_customize, color: Colors.blueGrey),
-        title: const Text("Admin Dashboard", style: TextStyle(fontWeight: FontWeight.bold)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminDashboard())),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        leading: const Icon(
+          Icons.dashboard_customize,
+          color: Colors.blueGrey,
+        ),
+        title: const Text(
+          "Admin Dashboard",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 14,
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AdminDashboard(),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildStatBox(String title, String value, Color color) {
+  Widget _buildStatBox(
+      String title,
+      String value,
+      Color color,
+      ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(20),
@@ -153,8 +270,21 @@ class ProfileScreen extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            Text(title, style: TextStyle(color: color, fontSize: 13)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            Text(
+              title,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
@@ -166,27 +296,66 @@ class ProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TextButton.icon(
         onPressed: () async {
-          await Provider.of<AuthProvider>(context, listen: false).logout();
+          await Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          ).logout();
+
           if (context.mounted) {
-            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/login',
+                  (route) => false,
+            );
           }
         },
-        icon: const Icon(Icons.logout, color: Colors.red),
-        label: const Text("LOG OUT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        icon: const Icon(
+          IconlyLight.logout,
+          color: Colors.red,
+        ),
+        label: const Text(
+          "LOG OUT",
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
+  Widget _infoRow(
+      IconData icon,
+      String label,
+      String value,
+      ) {
     return Row(
       children: [
-        Icon(icon, color: Colors.green, size: 20),
+        Icon(
+          icon,
+          color:  Color(AppColors.bgColor),
+          size: 20,
+        ),
+
         const SizedBox(width: 15),
+
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 11,
+              ),
+            ),
+
+            Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ],

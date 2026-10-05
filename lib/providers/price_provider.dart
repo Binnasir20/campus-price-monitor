@@ -1,37 +1,55 @@
-import 'dart:async'; // 1. IMPORT ASYNC
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../model/price_model.dart';
+import '../model/price_report_model.dart';
 import '../services/firestore_service.dart';
 
 class PriceProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
+
   List<Price> _prices = [];
+
+  // Reports submitted by users for admin review
+  List<PriceReport> _priceReports = [];
+
+  // Reports submitted by the current user
+  List<PriceReport> _myPriceReports = [];
+
   bool _isLoading = false;
   String? _errorMessage;
-  StreamSubscription? _priceSubscription; // 2. ADD A STREAM SUBSCRIPTION
+
+  StreamSubscription? _priceSubscription;
+  StreamSubscription? _priceReportSubscription;
+  StreamSubscription? _myPriceReportSubscription;
 
   List<Price> get prices => _prices;
+
+  // Admin reports
+  List<PriceReport> get priceReports => _priceReports;
+
+  // Current user's reports
+  List<PriceReport> get myPriceReports => _myPriceReports;
+
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // FIX: RESTRUCTURED FETCH METHOD
   void fetchPricesByUniversity(String universityName) {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    // Cancel any previous subscription to avoid memory leaks
     _priceSubscription?.cancel();
 
     _priceSubscription = _firestoreService
         .getPricesByUniversity(universityName)
         .listen((priceData) {
       _prices = priceData;
-      _isLoading = false; // Data has arrived, set loading to false
+      _isLoading = false;
       _errorMessage = null;
       notifyListeners();
     }, onError: (error) {
-      // Handle any errors from the stream
       _prices = [];
       _isLoading = false;
       _errorMessage = "Error fetching prices: $error";
@@ -40,32 +58,107 @@ class PriceProvider with ChangeNotifier {
     });
   }
 
-  // Good practice: Clean up the subscription when the provider is disposed
-  @override
-  void dispose() {
-    _priceSubscription?.cancel();
-    super.dispose();
-  }
-
   Future<bool> reportPrice(Price price) async {
     _isLoading = true;
     notifyListeners();
+
     try {
       await _firestoreService.updatePrice(price);
+
       _isLoading = false;
       notifyListeners();
-      return true; // This triggers the "Success" snackbar
+
+      return true;
     } catch (e) {
       _isLoading = false;
       notifyListeners();
+
       print("Provider Error: $e");
-      return false; // This triggers the "Failed" snackbar
+      return false;
     }
   }
-  void clearPrices() {
-    _priceSubscription?.cancel(); // Stop the live Firestore stream
-    _priceSubscription = null;
-    _prices = [];                 // Wipe the list
+
+  Future<bool> submitPriceReport(PriceReport report) async {
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      await _firestoreService.submitPriceReport(report);
+
+      _isLoading = false;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+
+      print("Provider Error: $e");
+      return false;
+    }
+  }
+
+  // GET ALL REPORTS FOR ADMIN
+  void fetchPriceReportsByUniversity(String universityName) {
+    _priceReportSubscription?.cancel();
+
+    _priceReportSubscription = _firestoreService
+        .getPriceReportsByUniversity(universityName)
+        .listen((reportData) {
+      _priceReports = reportData;
+      notifyListeners();
+    }, onError: (error) {
+      _priceReports = [];
+      print("Error fetching price reports: $error");
+      notifyListeners();
+    });
+  }
+
+  // GET REPORTS SUBMITTED BY THE CURRENT USER
+  void fetchMyPriceReports(String uid) {
+    _myPriceReportSubscription?.cancel();
+
+    _myPriceReportSubscription = _firestoreService
+        .getPriceReportsByUser(uid)
+        .listen((reportData) {
+      _myPriceReports = reportData;
+      notifyListeners();
+    }, onError: (error) {
+      _myPriceReports = [];
+      print("Error fetching my price reports: $error");
+      notifyListeners();
+    });
+  }
+
+  Future<bool> updatePriceReportStatus(
+      String reportId,
+      String status,
+      ) async {
+    try {
+      await _firestoreService.updatePriceReportStatus(
+        reportId,
+        status,
+      );
+
+      return true;
+    } catch (e) {
+      print("Provider Error: $e");
+      return false;
+    }
+  }
+
+  void clearPrices() {
+    _priceSubscription?.cancel();
+    _priceSubscription = null;
+    _prices = [];
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _priceSubscription?.cancel();
+    _priceReportSubscription?.cancel();
+    _myPriceReportSubscription?.cancel();
+    super.dispose();
   }
 }

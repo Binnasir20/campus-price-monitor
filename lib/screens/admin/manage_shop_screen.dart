@@ -15,7 +15,10 @@ class ManageShopsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Manage Shops"),
+        title: const Text("Manage Shops",style: TextStyle(
+          fontSize:20,
+          fontWeight:FontWeight.bold
+        )),
         backgroundColor: Colors.blueGrey[900],
         foregroundColor: Colors.white,
       ),
