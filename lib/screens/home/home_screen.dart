@@ -311,41 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment:
                         CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              bottom: 8,
-                              left: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  group == 'Food'
-                                      ? IconlyLight.buy
-                                      : group == 'Stationery'
-                                      ? IconlyLight.edit
-                                      : group ==
-                                      'Electronics'
-                                      ? IconlyLight.game
-                                      : IconlyLight.category,
-                                  color: Colors.green[800],
-                                  size: 20,
-                                ),
-
-                                const SizedBox(width: 8),
-
-                                Text(
-                                  group.toUpperCase(),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green[900],
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
                           for (final entry in groupedData[group]!)
                             _buildPriceCard(entry.key, entry.value),
                         ],
@@ -393,12 +358,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         icon: const Icon(
-          IconlyLight.home,
+          IconlyLight.edit_square,
           color: Colors.white,
           size: 20,
         ),
         backgroundColor:
-        Color(AppColors.bgColor).withOpacity(0.7),
+        Color(AppColors.bgColor),
       )
           : Column(
         mainAxisSize: MainAxisSize.min,
@@ -465,7 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Colors.white.withOpacity(0.1),
           radius: 20,
           child: Icon(
-            IconlyLight.bag,
+            IconlyLight.buy,
             color: Color(AppColors.bgColor),
           ),
         ),

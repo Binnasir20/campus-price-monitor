@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../constants/app_colors.dart';
 import '../../model/shop_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/location_service.dart';
 import 'package:intl/intl.dart';
@@ -42,11 +45,25 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
   Widget build(BuildContext context) {
     final priceProv = Provider.of<PriceProvider>(context);
     final shopPrices = priceProv.prices.where((p) => p.shopId == widget.shop.id).toList();
-
+    final user = Provider.of<AuthProvider>(context).userModel;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.shop.name),
-        backgroundColor: Colors.green,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Welcome to",style: TextStyle(
+                fontSize: 12,
+               fontWeight: FontWeight.bold,
+              fontStyle: FontStyle.italic
+            ),),
+            Text("${widget.shop.name}'s shop",style: TextStyle(
+                fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),),
+          ],
+        ),
+
+        backgroundColor: Color(AppColors.bgColor),
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -60,11 +77,11 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
               children: [
                 const Text(
                   "Items & Prices",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   "${shopPrices.length} Items",
-                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                  style:  TextStyle(color: Color(AppColors.bgColor), fontWeight: FontWeight.bold,fontSize: 12),
                 ),
               ],
             ),
@@ -87,14 +104,14 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
                       backgroundColor: Colors.orange.shade100,
                       child: const Icon(Icons.fastfood, color: Colors.orange, size: 20),
                     ),
-                    title: Text(price.itemId, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(price.itemId, style: const TextStyle(fontWeight: FontWeight.bold,fontSize: 15)),
                     subtitle: Text(
                       "Updated: ${DateFormat('MMM d, yyyy').format(price.updatedAt)}",
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                     ),
                     trailing: Text(
                       "₦${price.price.toStringAsFixed(0)}",
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(AppColors.bgColor)),
                     ),
                   ),
                 );
@@ -103,7 +120,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: user?.isAdmin == false ? FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
@@ -114,8 +131,8 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
         },
         label: const Text("Report Price"),
         icon: const Icon(Icons.add_chart),
-        backgroundColor: Colors.green,
-      ),
+        backgroundColor: Color(AppColors.bgColor),
+      ) : null,
     );
   }
 
@@ -134,15 +151,15 @@ class _ShopDetailScreenState extends State<ShopDetailScreen> {
       padding: const EdgeInsets.all(20),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
+        color: Color(AppColors.bgColor).withOpacity(0.1),
         border: Border(bottom: BorderSide(color: Colors.green.shade100)),
       ),
       child: Column(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 35,
             backgroundColor: Colors.white,
-            child: Icon(Icons.store, size: 40, color: Colors.green),
+            child: Icon(Icons.store, size: 40, color:Color(AppColors.bgColor)),
           ),
           const SizedBox(height: 12),
           Text(widget.shop.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../services/location_service.dart';
@@ -16,6 +18,7 @@ class ShopListScreen extends StatefulWidget {
 
 class _ShopListScreenState extends State<ShopListScreen> {
   Position? _currentPosition;
+
 
   @override
   void initState() {
@@ -47,11 +50,20 @@ class _ShopListScreenState extends State<ShopListScreen> {
   @override
   Widget build(BuildContext context) {
     final shopProv = Provider.of<ShopProvider>(context);
+    final user = Provider.of<AuthProvider>(context).userModel;
+
+
+
+
+
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Campus Shops"),
-        backgroundColor: Colors.green[700],
+        title: Text("${user?.university } Shops",style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.bold
+        ),),
+        backgroundColor: Color(AppColors.bgColor),
         foregroundColor: Colors.white,
       ),
       body: shopProv.isLoading
@@ -77,15 +89,15 @@ class _ShopListScreenState extends State<ShopListScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               leading: CircleAvatar(
                 // Orange for pending, Green for verified
-                backgroundColor: isPending ? Colors.orange.shade100 : Colors.green.shade100,
+                backgroundColor: isPending ? Colors.orange.shade100 : Colors.white.withOpacity(0.1),
                 child: Icon(
                     isPending ? Icons.hourglass_top : Icons.store,
-                    color: isPending ? Colors.orange : Colors.green
+                    color: isPending ? Colors.orange :  Color(AppColors.bgColor)
                 ),
               ),
               title: Text(
                 shop.name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +111,7 @@ class _ShopListScreenState extends State<ShopListScreen> {
                       padding: const EdgeInsets.only(top: 4.0),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_on, size: 14, color: Colors.green),
+                          const Icon(IconlyLight.location, size: 14, color: Colors.green),
                           const SizedBox(width: 4),
                           Text(
                             "${LocationService.calculateDistance(_currentPosition!.latitude, _currentPosition!.longitude, shop.latitude!, shop.longitude!).toStringAsFixed(1)} km away",
@@ -149,8 +161,8 @@ class _ShopListScreenState extends State<ShopListScreen> {
             MaterialPageRoute(builder: (context) => const AddShopScreen()),
           );
         },
-        backgroundColor: Colors.green[700],
-        icon: const Icon(Icons.add_business, color: Colors.white),
+        backgroundColor: Color(AppColors.bgColor),
+        icon: Icon(IconlyLight.edit_square, color: Colors.white),
         label: const Text("Add Shop", style: TextStyle(color: Colors.white)),
       ),
     );
