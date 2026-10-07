@@ -206,7 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 30),
 
             authProvider.isLoading
-                ? const CircularProgressIndicator()
+                ? const CircularProgressIndicator(color: Colors.orange,)
                 : SizedBox(
                 width: double.infinity,
                 height: 54,

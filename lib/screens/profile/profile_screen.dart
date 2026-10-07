@@ -16,6 +16,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = Provider.of<AuthProvider>(context).userModel;
     final priceProv = Provider.of<PriceProvider>(context);
+    print("PROFILE REPORT COUNT: ${priceProv.myPriceReports.length}");
     final complaintProv = Provider.of<ComplaintProvider>(context);
 
     // --- STATISTICS LOGIC ---
@@ -25,7 +26,7 @@ class ProfileScreen extends StatelessWidget {
     if (user != null) {
       if (user.isAdmin) {
         // ADMIN: Sees the total official prices
-        reportCount = priceProv.prices.length;
+        reportCount = priceProv.priceReports.length;
         complaintCount = complaintProv.userComplaints.length;
       } else {
         // STUDENT: Sees only their own submitted price reports
@@ -39,7 +40,12 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("My Profile"),
+        automaticallyImplyLeading: false,
+        title: const Text("My Profile",style: TextStyle(
+              fontSize: 15,
+              fontWeight:
+                FontWeight.bold,
+            ),),
         backgroundColor:  Color(AppColors.bgColor),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -85,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     children: [
                       _buildStatBox(
-                        "Prices",
+                        user?.isAdmin == true ? "Total Report" : "Prices",
                         reportCount.toString(),
                         Colors.blue,
                       ),
@@ -124,13 +130,13 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const CircleAvatar(
+           CircleAvatar(
             radius: 45,
             backgroundColor: Colors.white,
             child: Icon(
-              Icons.person,
+              IconlyLight.profile,
               size: 50,
-              color: Colors.green,
+              color: Color(AppColors.bgColor),
             ),
           ),
 
@@ -176,7 +182,7 @@ class ProfileScreen extends StatelessWidget {
               const Divider(),
 
               _infoRow(
-                IconlyLight.location,
+                Icons.location_on,
                 "Campus",
                 user?.campus ?? "N/A",
               ),
@@ -196,7 +202,7 @@ class ProfileScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         leading: const Icon(
-          Icons.receipt_long,
+          IconlyLight.document,
           color: Colors.blue,
         ),
         title: const Text(
@@ -295,20 +301,7 @@ class ProfileScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TextButton.icon(
-        onPressed: () async {
-          await Provider.of<AuthProvider>(
-            context,
-            listen: false,
-          ).logout();
-
-          if (context.mounted) {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              '/login',
-                  (route) => false,
-            );
-          }
-        },
+        onPressed: () => _confirmLogout(context),
         icon: const Icon(
           IconlyLight.logout,
           color: Colors.red,
@@ -318,6 +311,7 @@ class ProfileScreen extends StatelessWidget {
           style: TextStyle(
             color: Colors.red,
             fontWeight: FontWeight.bold,
+            fontSize: 15
           ),
         ),
       ),
@@ -360,5 +354,49 @@ class ProfileScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+Future<void> _confirmLogout(BuildContext context) async {
+  final shouldLogout = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text("Log Out"),
+        content: const Text(
+          "Are you sure you want to log out?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, false);
+            },
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+            },
+            child: const Text("Log Out",style: TextStyle(
+              color: Colors.orange
+            ),),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (shouldLogout == true) {
+    await Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).logout();
+
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login',
+            (route) => false,
+      );
+    }
   }
 }

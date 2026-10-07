@@ -142,7 +142,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
             // Login button
             if (auth.isLoading)
-              const CircularProgressIndicator()
+              const CircularProgressIndicator(
+                color: Colors.orange,
+              )
             else
               GestureDetector(
                 onTap: () => _handleLogin(auth),

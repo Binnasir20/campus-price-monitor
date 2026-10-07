@@ -1,6 +1,7 @@
 import 'package:campus_price_monitor/providers/auth_provider.dart';
 import 'package:campus_price_monitor/providers/complaint_provider.dart';
 import 'package:campus_price_monitor/providers/item_provider.dart';
+import 'package:campus_price_monitor/providers/notification_provider.dart';
 import 'package:campus_price_monitor/providers/price_provider.dart';
 import 'package:campus_price_monitor/providers/shop_provider.dart';
 import 'package:campus_price_monitor/screens/admin/manage_shop_screen.dart';
@@ -29,6 +30,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ItemProvider()),
         ChangeNotifierProvider(create: (_) => PriceProvider()),
         ChangeNotifierProvider(create: (_) => ShopProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MyApp(),
     ),

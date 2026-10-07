@@ -9,6 +9,7 @@ class PriceReport {
   final String reportedBy;
   final DateTime reportedAt;
   final String status;
+  final String? assignedAdminId;
 
   PriceReport({
     required this.id,
@@ -19,6 +20,7 @@ class PriceReport {
     required this.reportedBy,
     required this.reportedAt,
     required this.status,
+    this.assignedAdminId,
   });
 
   Map<String, dynamic> toMap() {
@@ -30,6 +32,7 @@ class PriceReport {
       'reportedBy': reportedBy,
       'reportedAt': reportedAt,
       'status': status,
+      'assignedAdminId': assignedAdminId,
     };
   }
 
@@ -46,6 +49,7 @@ class PriceReport {
       reportedBy: map['reportedBy'] ?? '',
       reportedAt: (map['reportedAt'] as Timestamp).toDate(),
       status: map['status'] ?? 'pending',
+      assignedAdminId: map['assignedAdminId'],
     );
   }
 }

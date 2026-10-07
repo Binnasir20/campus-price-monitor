@@ -1,0 +1,138 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if the user is an admin
+    function isAdmin() {
+      return request.auth != null &&
+        get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.isAdmin == true;
+    }
+
+
+    // ============================================================
+    // SHOPS COLLECTION
+    // ============================================================
+
+    match /shops/{shopId} {
+
+      // Anyone logged in can read shops
+      allow read: if request.auth != null;
+
+      // Only admins can create, update, or delete shops
+      allow create, update, delete: if isAdmin();
+    }
+
+
+    // ============================================================
+    // ITEMS COLLECTION
+    // ============================================================
+
+    match /items/{itemId} {
+
+      // Anyone logged in can read items
+      allow read: if request.auth != null;
+
+      // Only admins can create, update, or delete items
+      allow create, update, delete: if isAdmin();
+    }
+
+
+    // ============================================================
+    // PRICES COLLECTION
+    // ============================================================
+
+    match /prices/{priceId} {
+
+      // Anyone logged in can read prices
+      allow read: if request.auth != null;
+
+      // A logged-in user can create a price only for themselves
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+
+      // Only the original reporter or an admin can update/delete
+      allow update, delete: if request.auth != null &&
+        (
+          resource.data.userId == request.auth.uid ||
+          isAdmin()
+        );
+    }
+
+
+    // ============================================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================================
+
+    match /notifications/{notificationId} {
+
+      // Notifications are created only by Cloud Functions
+      allow create: if false;
+
+      // A user can only read their own notifications
+      allow read: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+
+      // A user can only update their own notification,
+      // and only the isRead field can be changed
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly(['isRead']);
+
+      // Notifications cannot be deleted from the app
+      allow delete: if false;
+    }
+
+
+    // ============================================================
+    // USERS COLLECTION
+    // ============================================================
+
+    match /users/{userId} {
+
+      // Users can read their own profile.
+      // Admins can read user profiles.
+      allow read: if request.auth != null &&
+        (
+          request.auth.uid == userId ||
+          isAdmin()
+        );
+
+      // Users can write their own profile
+      allow write: if request.auth != null &&
+        request.auth.uid == userId;
+    }
+
+
+    // ============================================================
+    // PRICE REPORTS COLLECTION
+    // ============================================================
+
+    match /priceReports/{reportId} {
+
+      // A student can submit a report only for themselves
+      allow create: if request.auth != null &&
+        request.resource.data.reportedBy == request.auth.uid;
+
+      // Students can read their own reports.
+      // All admins can read all reports.
+      allow read: if request.auth != null &&
+        (
+          resource.data.reportedBy == request.auth.uid ||
+          isAdmin()
+        );
+
+      // Only the admin assigned to the report can update it
+      allow update: if isAdmin() &&
+        resource.data.assignedAdminId == request.auth.uid;
+
+      // Any admin can delete a report
+      allow delete: if isAdmin();
+    }
+  }
+}

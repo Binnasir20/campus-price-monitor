@@ -10,8 +10,10 @@ import '../../model/price_model.dart';
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/item_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../Notification_screen/notification_screen.dart';
 import '../shop/report_price_screen.dart';
 import '../complaints/complaint_form_screen.dart';
 import '../shop/shop_map_screen.dart';
@@ -69,12 +71,21 @@ class _HomeScreenState extends State<HomeScreen> {
         context.read<ItemProvider>().fetchItems();
 
         context.read<PriceProvider>().fetchPricesByUniversity(user.university);
-
+        if (user.isAdmin) {
+          context.read<PriceProvider>().fetchPriceReportsByUniversity(
+            user.university,
+          );
+        } else {
+          context.read<PriceProvider>().fetchMyPriceReports(
+            user.uid,
+          );
+        }
         context.read<ShopProvider>().fetchShopsByUniversity(
           user.university,
           user.uid,
           isAdmin: user.isAdmin,
         );
+
       }
     });
   }
@@ -216,8 +227,63 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
 
         actions: [
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              final unreadCount = notificationProvider.unreadCount;
+
+              return Stack(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      IconlyLight.notification,
+                    ),
+                  ),
+
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            unreadCount > 9
+                                ? '9+'
+                                : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+
           IconButton(
-            icon: const Icon(IconlyLight.location),
+            icon: const Icon(
+              IconlyLight.location,
+            ),
             onPressed: () {
               Navigator.push(
                 context,
@@ -226,11 +292,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
-          ),
-
-          IconButton(
-            icon: const Icon(IconlyLight.logout),
-            onPressed: () => _handleLogout(),
           ),
         ],
       ),

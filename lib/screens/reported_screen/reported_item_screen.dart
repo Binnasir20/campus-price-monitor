@@ -9,7 +9,8 @@ class ReportedItemsScreen extends StatefulWidget {
   const ReportedItemsScreen({super.key});
 
   @override
-  State<ReportedItemsScreen> createState() => _ReportedItemsScreenState();
+  State<ReportedItemsScreen> createState() =>
+      _ReportedItemsScreenState();
 }
 
 class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
@@ -70,6 +71,7 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
             itemBuilder: (context, index) {
               final report = reports[index];
 
+              // Find the shop name using the shop ID.
               String shopName = 'Unknown shop';
 
               for (final shop in shopProvider.shops) {
@@ -79,6 +81,7 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
                 }
               }
 
+              // Determine status color.
               Color statusColor;
 
               if (report.status == 'approved') {
@@ -94,8 +97,10 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
                     children: [
+                      // Item
                       Text(
                         report.itemId,
                         style: const TextStyle(
@@ -106,24 +111,28 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
 
                       const SizedBox(height: 8),
 
+                      // Shop
                       Text(
                         'Shop: $shopName',
                       ),
 
                       const SizedBox(height: 4),
 
+                      // Price
                       Text(
                         'Price: ₦${report.price.toStringAsFixed(2)}',
                       ),
 
                       const SizedBox(height: 4),
 
+                      // Date
                       Text(
                         'Date: ${report.reportedAt.toLocal()}',
                       ),
 
                       const SizedBox(height: 10),
 
+                      // Status
                       Row(
                         children: [
                           const Text(
@@ -141,6 +150,36 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
                           ),
                         ],
                       ),
+
+                      const SizedBox(height: 8),
+
+                      // Status message
+                      if (report.status == 'approved')
+                        Text(
+                          'Your report has been approved. Thank you.',
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                      if (report.status == 'rejected')
+                        Text(
+                          'Please verify the price before reporting. Thank you.',
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                      if (report.status == 'pending')
+                        Text(
+                          'Your report is being processed.',
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                     ],
                   ),
                 ),

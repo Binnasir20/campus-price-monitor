@@ -116,14 +116,18 @@ class PriceProvider with ChangeNotifier {
 
   // GET REPORTS SUBMITTED BY THE CURRENT USER
   void fetchMyPriceReports(String uid) {
+    print("FETCHING MY REPORTS FOR: $uid");
+
     _myPriceReportSubscription?.cancel();
 
     _myPriceReportSubscription = _firestoreService
         .getPriceReportsByUser(uid)
         .listen((reportData) {
+      print("MY REPORTS RECEIVED: ${reportData.length}");
       _myPriceReports = reportData;
       notifyListeners();
     }, onError: (error) {
+      print("MY REPORTS ERROR: $error");
       _myPriceReports = [];
       print("Error fetching my price reports: $error");
       notifyListeners();
