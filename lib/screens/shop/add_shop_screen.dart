@@ -1,219 +1,338 @@
+
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
+
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'location_picker_screen.dart';
 
 class AddShopScreen extends StatefulWidget {
-  const AddShopScreen({super.key});
+const AddShopScreen({super.key});
 
-  @override
-  State<AddShopScreen> createState() => _AddShopScreenState();
+@override
+State<AddShopScreen> createState() => _AddShopScreenState();
 }
 
 class _AddShopScreenState extends State<AddShopScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _locationController = TextEditingController();
-  String? _selectedCampus;
-  LatLng? _pickedLocation;
-  bool _isSaving = false;
+final _formKey = GlobalKey<FormState>();
+final _nameController = TextEditingController();
+final _locationController = TextEditingController();
 
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _locationController.dispose();
-    super.dispose();
-  }
+String? _selectedCampus;
+LatLng? _pickedLocation;
+bool _isSaving = false;
 
-  void _pickLocation() async {
-    final LatLng? result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LocationPickerScreen(),
-      ),
-    );
+@override
+void dispose() {
+_nameController.dispose();
+_locationController.dispose();
+super.dispose();
+}
 
-    if (result != null) {
-      setState(() {
-        _pickedLocation = result;
-      });
-    }
-  }
+Future<void> _pickLocation() async {
+final LatLng? result = await Navigator.push<LatLng>(
+context,
+MaterialPageRoute(
+builder: (context) => const LocationPickerScreen(),
+),
+);
 
-  void _submitShop() async {
-    if (!_formKey.currentState!.validate()) return;
+if (!mounted) return;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
-    final user = authProvider.userModel;
+if (result != null) {
+setState(() {
+_pickedLocation = result;
+});
+}
+}
 
-    // Security check
-    if (user == null || !user.isAdmin) return;
+Future<void> _submitShop() async {
+if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSaving = true);
+// Coordinates are required so the shop can appear on the map.
+if (_pickedLocation == null) {
+_showError('Please select the shop location on the map.');
+return;
+}
 
-    final newShop = Shop(
-      id: '',
-      name: _nameController.text.trim(),
-      university: user.university.trim(),
-      location: _locationController.text.trim(),
-      campus: _selectedCampus!,
-      createdBy: user.uid,
-      isVerified: true,
-      isPotentialDuplicate: false,
-      latitude: _pickedLocation?.latitude,
-      longitude: _pickedLocation?.longitude,
-    );
+final authProvider = context.read<AuthProvider>();
+final shopProvider = context.read<ShopProvider>();
+final user = authProvider.userModel;
 
-    try {
-      await shopProvider.addNewShop(newShop);
-      shopProvider.fetchShopsByUniversity(user.university, user.uid, isAdmin: true);
+// Security check.
+if (user == null || !user.isAdmin) {
+_showError('Only administrators can add official shops.');
+return;
+}
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Official shop added!"), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      setState(() => _isSaving = false);
-      _showError("Failed to save shop.");
-    }
-  }
+setState(() {
+_isSaving = true;
+});
 
-  @override
-  Widget build(BuildContext context) {
-    final user = Provider.of<AuthProvider>(context).userModel;
-    final bool isAdmin = user?.isAdmin == true;
+final newShop = Shop(
+id: '',
+name: _nameController.text.trim(),
+university: user.university.trim(),
+location: _locationController.text.trim(),
+campus: _selectedCampus!,
+createdBy: user.uid,
+isVerified: true,
+isPotentialDuplicate: false,
+latitude: _pickedLocation!.latitude,
+longitude: _pickedLocation!.longitude,
+);
 
+try {
+await shopProvider.addNewShop(newShop);
 
-    if (!isAdmin) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Access Denied")),
-        body: const Center(child: Text("Only Admins can access this page.")),
-      );
-    }
+if (!mounted) return;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Add Official Shop",style: TextStyle(
-          fontSize:17
-        ),),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Register New Campus Shop",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const Text("Visible to all students immediately.",
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-              const SizedBox(height: 30),
+await shopProvider.fetchShopsByUniversity(
+user.university,
+user.uid,
+isAdmin: true,
+);
 
-              TextFormField(
-                controller: _nameController,
-                decoration: _inputDecoration("Shop Name", Icons.storefront),
-                validator: (val) => val!.isEmpty ? "Enter name" : null,
-              ),
-              const SizedBox(height: 20),
+if (!mounted) return;
 
-              TextFormField(
-                controller: _locationController,
-                decoration: _inputDecoration("Location", Icons.map_outlined),
-                validator: (val) => val!.isEmpty ? "Enter location" : null,
-              ),
-              const SizedBox(height: 20),
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('Official shop added successfully!'),
+backgroundColor: Colors.green,
+),
+);
 
-              DropdownButtonFormField<String>(
-                value: _selectedCampus,
-                decoration: _inputDecoration("Select Campus", IconlyBold.location),
-                items: ["Main Campus", "City Campus", "Annex", "Other"]
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                    .toList(),
-                onChanged: (val) => setState(() => _selectedCampus = val),
-                validator: (val) => val == null ? "Select campus" : null,
+Navigator.pop(context);
+} catch (e) {
+debugPrint('Failed to add shop: $e');
 
-              ),
+if (mounted) {
+_showError('Failed to save shop. Please try again.');
+}
+} finally {
+if (mounted) {
+setState(() {
+_isSaving = false;
+});
+}
+}
+}
 
-              const SizedBox(height: 20),
+@override
+Widget build(BuildContext context) {
+final user = context.watch<AuthProvider>().userModel;
+final bool isAdmin = user?.isAdmin == true;
 
-              // Location Picker Button
-              OutlinedButton.icon(
-                onPressed: _pickLocation,
-                icon: Icon(
-                  _pickedLocation == null ? Icons.add_location_alt : Icons.location_on,
-                  color: _pickedLocation == null ? Colors.blueGrey : Colors.green,
-                ),
-                label: Text(
-                  _pickedLocation == null ? "Select Location on Map" : "Location Selected",
-                  style: TextStyle(
-                    color: _pickedLocation == null ? Colors.blueGrey : Colors.green,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(60),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  side: BorderSide(
-                    color: _pickedLocation == null ?Colors.teal : Colors.green,
-                  ),
-                ),
-              ),
-              if (_pickedLocation != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0, left: 4.0),
-                  child: Text(
-                    "Coordinates: ${_pickedLocation!.latitude.toStringAsFixed(4)}, ${_pickedLocation!.longitude.toStringAsFixed(4)}",
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ),
+if (!isAdmin) {
+return Scaffold(
+appBar: AppBar(
+title: const Text('Access Denied'),
+),
+body: const Center(
+child: Text('Only admins can access this page.'),
+),
+);
+}
 
-              const SizedBox(height: 40),
+return Scaffold(
+appBar: AppBar(
+title: const Text(
+'Add Official Shop',
+style: TextStyle(fontSize: 17),
+),
+backgroundColor: Colors.teal,
+foregroundColor: Colors.white,
+),
+body: SingleChildScrollView(
+padding: const EdgeInsets.all(24),
+child: Form(
+key: _formKey,
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+const Text(
+'Register New Campus Shop',
+style: TextStyle(
+fontWeight: FontWeight.bold,
+fontSize: 15,
+),
+),
+const Text(
+'Visible to all students immediately.',
+style: TextStyle(
+color: Colors.grey,
+fontSize: 11,
+),
+),
+const SizedBox(height: 30),
 
-              // The button is only reachable if isAdmin is true
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(60),
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _isSaving ? null : _submitShop,
-                child: _isSaving
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("SAVE OFFICIAL SHOP",
-                    style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+TextFormField(
+controller: _nameController,
+decoration: _inputDecoration(
+'Shop Name',
+Icons.storefront,
+),
+validator: (value) {
+if (value == null || value.trim().isEmpty) {
+return 'Enter shop name';
+}
+return null;
+},
+),
+const SizedBox(height: 20),
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    );
-  }
+TextFormField(
+controller: _locationController,
+decoration: _inputDecoration(
+'Location',
+Icons.map_outlined,
+),
+validator: (value) {
+if (value == null || value.trim().isEmpty) {
+return 'Enter shop address or description';
+}
+return null;
+},
+),
+const SizedBox(height: 20),
 
-  void _showError(String msg) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
-      );
-    }
-  }
+DropdownButtonFormField<String>(
+value: _selectedCampus,
+decoration: _inputDecoration(
+'Select Campus',
+IconlyBold.location,
+),
+items: ['Main Campus', 'City Campus', 'Annex', 'Other']
+    .map(
+(campus) => DropdownMenuItem(
+value: campus,
+child: Text(campus),
+),
+)
+    .toList(),
+onChanged: (value) {
+setState(() {
+_selectedCampus = value;
+});
+},
+validator: (value) {
+if (value == null) {
+return 'Select campus';
+}
+return null;
+},
+),
+
+const SizedBox(height: 20),
+
+// Shop location picker.
+OutlinedButton.icon(
+onPressed: _isSaving ? null : _pickLocation,
+icon: Icon(
+_pickedLocation == null
+? Icons.add_location_alt
+    : Icons.location_on,
+color: _pickedLocation == null
+? Colors.blueGrey
+    : Colors.green,
+),
+label: Text(
+_pickedLocation == null
+? 'Select Location on Map'
+    : 'Location Selected',
+style: TextStyle(
+color: _pickedLocation == null
+? Colors.blueGrey
+    : Colors.green,
+fontWeight: FontWeight.bold,
+fontSize: 12,
+),
+),
+style: OutlinedButton.styleFrom(
+minimumSize: const Size.fromHeight(60),
+shape: RoundedRectangleBorder(
+borderRadius: BorderRadius.circular(12),
+),
+side: BorderSide(
+color: _pickedLocation == null
+? Colors.teal
+    : Colors.green,
+),
+),
+),
+
+if (_pickedLocation != null)
+Padding(
+padding: const EdgeInsets.only(
+top: 8,
+left: 4,
+),
+child: Text(
+'Coordinates: '
+'${_pickedLocation!.latitude.toStringAsFixed(6)}, '
+'${_pickedLocation!.longitude.toStringAsFixed(6)}',
+style: const TextStyle(
+fontSize: 12,
+color: Colors.grey,
+),
+),
+),
+
+const SizedBox(height: 40),
+
+ElevatedButton(
+style: ElevatedButton.styleFrom(
+minimumSize: const Size.fromHeight(60),
+backgroundColor: Colors.teal,
+foregroundColor: Colors.white,
+shape: RoundedRectangleBorder(
+borderRadius: BorderRadius.circular(12),
+),
+),
+onPressed: _isSaving ? null : _submitShop,
+child: _isSaving
+? const CircularProgressIndicator(
+color: Colors.white,
+)
+    : const Text(
+'SAVE OFFICIAL SHOP',
+style: TextStyle(
+fontWeight: FontWeight.bold,
+fontSize: 15,
+),
+),
+),
+],
+),
+),
+),
+);
+}
+
+InputDecoration _inputDecoration(
+String label,
+IconData icon,
+) {
+return InputDecoration(
+labelText: label,
+prefixIcon: Icon(icon),
+border: OutlineInputBorder(
+borderRadius: BorderRadius.circular(12),
+),
+);
+}
+
+void _showError(String message) {
+if (!mounted) return;
+
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(
+content: Text(message),
+backgroundColor: Colors.redAccent,
+),
+);
+}
 }

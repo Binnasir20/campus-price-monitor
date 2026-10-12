@@ -1,60 +1,72 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/material.dart';
 
 class LocationService {
-  /// Check and request location permissions
+  // Get the user's current location.
   static Future<Position?> getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    final serviceEnabled =
+    await Geolocator.isLocationServiceEnabled();
 
-    // Test if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      return Future.error('Location services are disabled.');
+      throw Exception('Location services are disabled.');
     }
 
-    permission = await Geolocator.checkPermission();
+    LocationPermission permission =
+    await Geolocator.checkPermission();
+
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+
       if (permission == LocationPermission.denied) {
-        return Future.error('Location permissions are denied');
+        throw Exception('Location permission was denied.');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
+      throw Exception(
+        'Location permission is permanently denied. '
+            'Enable it in your phone settings.',
+      );
     }
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
+     return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 20),
+      ),
+    );
   }
 
-  /// Launch external navigation app
+  // Open a shop's location in OpenStreetMap.
+  // Open directions to a shop in Google Maps.
   static Future<void> navigateTo(double lat, double lng) async {
-    final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
-    final Uri appleMapsUrl = Uri.parse("http://maps.apple.com/?daddr=$lat,$lng");
+    final url = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+    );
 
-    if (await canLaunchUrl(googleMapsUrl)) {
-      await launchUrl(googleMapsUrl);
-    } else if (await canLaunchUrl(appleMapsUrl)) {
-      await launchUrl(appleMapsUrl);
-    } else {
-      // Fallback to browser if no map app found
-      final Uri webUrl = Uri.parse("https://www.google.com/maps/search/?api=1&query=$lat,$lng");
-      if (await canLaunchUrl(webUrl)) {
-        await launchUrl(webUrl);
-      } else {
-        throw 'Could not launch maps.';
-      }
+    final opened = await launchUrl(
+      url,
+      mode: LaunchMode.platformDefault,
+    );
+
+    if (!opened) {
+      throw Exception('Could not open directions to this shop.');
     }
   }
+  // Calculate distance in kilometres.
+  static double calculateDistance(
+      double startLat,
+      double startLng,
+      double endLat,
+      double endLng,
+      ) {
+    final distanceInMeters = Geolocator.distanceBetween(
+      startLat,
+      startLng,
+      endLat,
+      endLng,
+    );
 
-  /// Calculate distance between two points in km
-  static double calculateDistance(double startLat, double startLng, double endLat, double endLng) {
-    double distanceInMeters = Geolocator.distanceBetween(startLat, startLng, endLat, endLng);
-    return distanceInMeters / 1000; // Convert to km
+    return distanceInMeters / 1000;
   }
 }

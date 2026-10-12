@@ -4,6 +4,7 @@ import 'package:campus_price_monitor/providers/item_provider.dart';
 import 'package:campus_price_monitor/providers/notification_provider.dart';
 import 'package:campus_price_monitor/providers/price_provider.dart';
 import 'package:campus_price_monitor/providers/shop_provider.dart';
+import 'package:campus_price_monitor/screens/admin/manage_shop_inventory_screen.dart';
 import 'package:campus_price_monitor/screens/admin/manage_shop_screen.dart';
 import 'package:campus_price_monitor/screens/admin/manage_items_screen.dart';
 import 'package:campus_price_monitor/screens/auth/splash_screen.dart';
@@ -58,6 +59,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
         '/manage_shops': (context) => const ManageShopsScreen(),
+        '/manage_shop_inventory': (context) => const ManageShopInventoryScreen(),
         '/admin_complaints': (context) => const AdminComplaintScreen(),
         '/manage_items': (context) => const ManageItemsScreen(),
         '/reported_prices': (context) => const ReportedScreen(),

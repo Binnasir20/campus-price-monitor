@@ -34,6 +34,14 @@ class AdminDashboard extends StatelessWidget {
             color: Colors.blue,
             onTap: () => Navigator.pushNamed(context, '/manage_shops'),
           ),
+          _buildAdminCard(
+            context,
+            title: "Manage Inventory",
+            subtitle: "Edit or Delete",
+            icon: IconlyLight.bag,
+            color: Colors.blue,
+            onTap: () => Navigator.pushNamed(context, '/manage_shop_inventory'),
+          ),
 
           // 2. MANAGE ITEMS & CATEGORIES
           _buildAdminCard(

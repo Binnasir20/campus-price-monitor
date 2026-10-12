@@ -4,10 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../model/item_model.dart';
 import '../../model/price_model.dart';
-import '../../providers/item_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/shop_provider.dart';
+import '../../providers/item_provider.dart';
 import '../../providers/price_provider.dart';
+import '../../providers/shop_provider.dart';
 
 class ManageItemsScreen extends StatefulWidget {
   const ManageItemsScreen({super.key});
@@ -21,18 +21,18 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
 
-  String _selectedCategory = 'Food';
-  String? _selectedShopId;
-
-  bool _isSaving = false;
-  String? _deletingItemId;
-
   final List<String> _categories = [
     'Food',
     'Stationery',
     'Electronics',
     'Other',
   ];
+
+  String _selectedCategory = 'Food';
+  String? _selectedShopId;
+
+  bool _isSaving = false;
+  String? _deletingItemId;
 
   @override
   void initState() {
@@ -52,13 +52,10 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
   }
 
   // ============================================================
-  // SHOW MESSAGE
+  // MESSAGES
   // ============================================================
 
-  void _showMessage(
-      String message, {
-        bool isError = false,
-      }) {
+  void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -73,7 +70,33 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
   }
 
   // ============================================================
-  // ADD ITEM DIALOG
+  // VALIDATION
+  // ============================================================
+
+  String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Enter the item name';
+    }
+
+    return null;
+  }
+
+  String? _validatePrice(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Enter the price';
+    }
+
+    final price = double.tryParse(value.trim());
+
+    if (price == null || !price.isFinite || price <= 0) {
+      return 'Enter a valid price greater than zero';
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // ADD ITEM
   // ============================================================
 
   void _showAddItemDialog() {
@@ -85,10 +108,20 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
 
     final shops = context.read<ShopProvider>().shops;
 
+    if (shops.isEmpty) {
+      _showMessage(
+        'Add a shop before adding an item.',
+        isError: true,
+      );
+      return;
+    }
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
+        bool saving = false;
+
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             return AlertDialog(
@@ -106,18 +139,12 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Item Name',
                           hintText: 'e.g. Notebook',
-                          prefixIcon: Icon(Icons.inventory_2_outlined),
+                          prefixIcon:
+                          Icon(Icons.inventory_2_outlined),
                         ),
-                        validator: (value) {
-                          if (value == null ||
-                              value.trim().isEmpty) {
-                            return 'Enter the item name';
-                          }
-                          return null;
-                        },
+                        validator: _validateName,
                       ),
                       const SizedBox(height: 16),
-
                       DropdownButtonFormField<String>(
                         value: _selectedCategory,
                         isExpanded: true,
@@ -127,12 +154,14 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                           Icon(Icons.category_outlined),
                         ),
                         items: _categories.map((category) {
-                          return DropdownMenuItem<String>(
+                          return DropdownMenuItem(
                             value: category,
                             child: Text(category),
                           );
                         }).toList(),
-                        onChanged: (value) {
+                        onChanged: saving
+                            ? null
+                            : (value) {
                           if (value == null) return;
 
                           setDialogState(() {
@@ -141,16 +170,16 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-
                       DropdownButtonFormField<String>(
                         value: _selectedShopId,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Select Shop',
-                          prefixIcon: Icon(Icons.store_outlined),
+                          prefixIcon:
+                          Icon(Icons.store_outlined),
                         ),
                         items: shops.map((shop) {
-                          return DropdownMenuItem<String>(
+                          return DropdownMenuItem(
                             value: shop.id,
                             child: Text(
                               shop.name,
@@ -158,36 +187,22 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                             ),
                           );
                         }).toList(),
-                        onChanged: (value) {
+                        onChanged: saving
+                            ? null
+                            : (value) {
                           setDialogState(() {
                             _selectedShopId = value;
                           });
                         },
                         validator: (value) {
-                          if (value == null) {
+                          if (value == null || value.isEmpty) {
                             return 'Select a shop';
                           }
+
                           return null;
                         },
                       ),
-
-                      if (shops.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'No shops available. Add a shop first.',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ),
-
                       const SizedBox(height: 16),
-
                       TextFormField(
                         controller: _priceController,
                         keyboardType:
@@ -196,7 +211,6 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                         ),
                         decoration: const InputDecoration(
                           labelText: 'Price',
-                          hintText: 'Enter amount',
                           prefixText: '₦ ',
                           prefixIcon:
                           Icon(Icons.payments_outlined),
@@ -209,25 +223,32 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: _isSaving
+                  onPressed: saving
                       ? null
                       : () => Navigator.pop(dialogContext),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: _isSaving || shops.isEmpty
+                  onPressed: saving
                       ? null
                       : () async {
-                    await _saveItem(
-                      dialogContext,
-                      setDialogState,
-                    );
+                    if (!_formKey.currentState!.validate()) {
+                      return;
+                    }
+
+                    setDialogState(() => saving = true);
+
+                    final success = await _saveItem();
+
+                    if (!dialogContext.mounted) return;
+
+                    setDialogState(() => saving = false);
+
+                    if (success) {
+                      Navigator.pop(dialogContext);
+                    }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueGrey[900],
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _isSaving
+                  child: saving
                       ? const SizedBox(
                     height: 20,
                     width: 20,
@@ -246,65 +267,35 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
     );
   }
 
-  // ============================================================
-  // PRICE VALIDATION
-  // ============================================================
-
-  String? _validatePrice(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Enter the price';
-    }
-
-    final price = double.tryParse(value.trim());
-
-    if (price == null || !price.isFinite || price <= 0) {
-      return 'Enter a valid price greater than zero';
-    }
-
-    return null;
-  }
-
-  // ============================================================
-  // SAVE NEW ITEM AND PRICE
-  // ============================================================
-
-  Future<void> _saveItem(
-      BuildContext dialogContext,
-      StateSetter setDialogState,
-      ) async {
-    if (_isSaving) return;
-    if (!_formKey.currentState!.validate()) return;
+  Future<bool> _saveItem() async {
+    if (_isSaving) return false;
 
     final itemProvider = context.read<ItemProvider>();
     final priceProvider = context.read<PriceProvider>();
-    final authProvider = context.read<AuthProvider>();
-
-    final user = authProvider.userModel;
+    final user = context.read<AuthProvider>().userModel;
 
     if (user == null) {
-      _showMessage(
-        'Please sign in before adding an item.',
-        isError: true,
-      );
-      return;
+      _showMessage('Please sign in first.', isError: true);
+      return false;
     }
 
-    final itemName = _nameController.text.trim();
-    final priceValue =
-    double.tryParse(_priceController.text.trim());
+    final name = _nameController.text.trim();
+    final priceValue = double.tryParse(_priceController.text.trim());
     final shopId = _selectedShopId;
 
     if (priceValue == null ||
         !priceValue.isFinite ||
         priceValue <= 0 ||
         shopId == null) {
-      return;
+      _showMessage('Please enter valid item details.',
+          isError: true);
+      return false;
     }
 
-    setDialogState(() => _isSaving = true);
+    setState(() => _isSaving = true);
 
     try {
-      final normalizedName = itemName.toLowerCase();
+      final normalizedName = name.toLowerCase();
 
       final existingItems = itemProvider.items.where(
             (item) =>
@@ -319,48 +310,38 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         if (existingItem.category != _selectedCategory) {
           _showMessage(
             'This item already exists under '
-                '${existingItem.category}. '
-                'Edit the existing item instead.',
+                '${existingItem.category}.',
             isError: true,
           );
-          return;
+          return false;
         }
 
         itemId = existingItem.id;
       } else {
-        final newItem = Item(
-          id: '',
-          name: itemName,
-          category: _selectedCategory,
+        final createdId = await itemProvider.addItem(
+          Item(
+            id: '',
+            name: name,
+            category: _selectedCategory,
+          ),
         );
 
-        final createdItemId =
-        await itemProvider.addItem(newItem);
-
-        if (createdItemId == null ||
-            createdItemId.trim().isEmpty) {
-          _showMessage(
-            'Failed to create the item. Please try again.',
-            isError: true,
-          );
-          return;
+        if (createdId == null || createdId.trim().isEmpty) {
+          _showMessage('Failed to create the item.',
+              isError: true);
+          return false;
         }
 
-        itemId = createdItemId;
+        itemId = createdId;
       }
 
-      // Find an existing price for this item and shop.
       final existingPrice = priceProvider.prices.where(
             (price) =>
-        price.shopId == shopId &&
-            (price.itemId == itemId ||
-                price.itemId == itemName),
+        price.shopId == shopId && price.itemId == itemId,
       );
 
-      final newPrice = Price(
-        id: existingPrice.isEmpty
-            ? ''
-            : existingPrice.first.id,
+      final price = Price(
+        id: existingPrice.isEmpty ? '' : existingPrice.first.id,
         itemId: itemId,
         shopId: shopId,
         university: user.university,
@@ -369,133 +350,109 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         reportedBy: user.uid,
       );
 
-      final priceSuccess =
-      await priceProvider.reportPrice(newPrice);
+      final saved = await priceProvider.reportPrice(price);
 
-      if (!mounted || !dialogContext.mounted) return;
-
-      if (!priceSuccess) {
+      if (!saved) {
         _showMessage(
-          'The item may have been created, but its price '
-              'could not be saved. Please check and try again.',
+          'The item may have been created, but its price could not '
+              'be saved. Check the item before trying again.',
           isError: true,
         );
-        return;
+        return false;
       }
-
-      Navigator.pop(dialogContext);
 
       _showMessage('Item and price saved successfully.');
+      return true;
     } catch (error, stackTrace) {
-      debugPrint('Error saving item and price: $error');
+      debugPrint('Error saving item: $error');
       debugPrintStack(stackTrace: stackTrace);
 
-      _showMessage(
-        'Something went wrong while saving the item.',
-        isError: true,
-      );
+      _showMessage('Failed to save the item and price.',
+          isError: true);
+      return false;
     } finally {
-      if (mounted) {
-        setDialogState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   // ============================================================
-  // EDIT ITEM AND CURRENT PRICE
+  // EDIT ITEM AND PRICE
   // ============================================================
 
   Future<void> _showEditItemDialog(Item item) async {
-    final nameController =
-    TextEditingController(text: item.name);
+    final nameController = TextEditingController(text: item.name);
     final priceController = TextEditingController();
 
-    String selectedCategory = _categories.contains(item.category)
+    final shops = context.read<ShopProvider>().shops;
+    final itemProvider = context.read<ItemProvider>();
+    final priceProvider = context.read<PriceProvider>();
+    final user = context.read<AuthProvider>().userModel;
+
+    if (user == null || shops.isEmpty) {
+      nameController.dispose();
+      priceController.dispose();
+
+      _showMessage(
+        user == null
+            ? 'Please sign in before editing.'
+            : 'Add a shop before editing prices.',
+        isError: true,
+      );
+      return;
+    }
+
+    String category = _categories.contains(item.category)
         ? item.category
         : 'Other';
 
-    final shops = context.read<ShopProvider>().shops;
-    final priceProvider = context.read<PriceProvider>();
-    final authProvider = context.read<AuthProvider>();
-
-    final user = authProvider.userModel;
-
-    if (user == null) {
-      nameController.dispose();
-      priceController.dispose();
-
-      _showMessage(
-        'Please sign in before editing an item.',
-        isError: true,
-      );
-      return;
-    }
-
-    if (shops.isEmpty) {
-      nameController.dispose();
-      priceController.dispose();
-
-      _showMessage(
-        'No shops are available. Add a shop first.',
-        isError: true,
-      );
-      return;
-    }
-
-    String? selectedShopId = shops.first.id;
+    String? shopId = shops.first.id;
     Price? existingPrice;
 
-    void loadPriceForShop(String? shopId) {
-      if (shopId == null) return;
+    void loadPrice(String? selectedShop) {
+      if (selectedShop == null) return;
 
       final matches = priceProvider.prices.where(
             (price) =>
-        price.shopId == shopId &&
-            (price.itemId == item.id ||
-                price.itemId == item.name),
+        price.shopId == selectedShop &&
+            price.itemId == item.id,
       );
 
-      if (matches.isNotEmpty) {
-        existingPrice = matches.first;
-        priceController.text =
-            existingPrice!.price.toString();
-      } else {
-        existingPrice = null;
-        priceController.clear();
+      existingPrice = matches.isEmpty ? null : matches.first;
+
+      priceController.text =
+          existingPrice?.price.toString() ?? '';
+    }
+
+    final itemPrices = priceProvider.prices.where(
+          (price) => price.itemId == item.id,
+    );
+
+    if (itemPrices.isNotEmpty) {
+      final existingShopId = itemPrices.first.shopId;
+
+      if (shops.any((shop) => shop.id == existingShopId)) {
+        shopId = existingShopId;
       }
     }
 
-    // Prefer a shop that already has a price for this item.
-    final existingPrices = priceProvider.prices.where(
-          (price) =>
-      price.itemId == item.id ||
-          price.itemId == item.name,
-    );
+    loadPrice(shopId);
 
-    if (existingPrices.isNotEmpty &&
-        shops.any(
-              (shop) => shop.id == existingPrices.first.shopId,
-        )) {
-      selectedShopId = existingPrices.first.shopId;
-    }
-
-    loadPriceForShop(selectedShopId);
-
-    final editFormKey = GlobalKey<FormState>();
-    bool isSaving = false;
+    final formKey = GlobalKey<FormState>();
 
     try {
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
+          bool saving = false;
+
           return StatefulBuilder(
             builder: (dialogContext, setDialogState) {
               return AlertDialog(
                 title: const Text('Edit Item & Price'),
                 content: SingleChildScrollView(
                   child: Form(
-                    key: editFormKey,
+                    key: formKey,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -505,55 +462,38 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                           TextCapitalization.words,
                           decoration: const InputDecoration(
                             labelText: 'Item Name',
-                            prefixIcon: Icon(
-                              Icons.inventory_2_outlined,
-                            ),
                           ),
-                          validator: (value) {
-                            if (value == null ||
-                                value.trim().isEmpty) {
-                              return 'Enter the item name';
-                            }
-                            return null;
-                          },
+                          validator: _validateName,
                         ),
                         const SizedBox(height: 16),
-
                         DropdownButtonFormField<String>(
-                          value: selectedCategory,
+                          value: category,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Category',
-                            prefixIcon:
-                            Icon(Icons.category_outlined),
                           ),
-                          items: _categories.map((category) {
-                            return DropdownMenuItem<String>(
-                              value: category,
-                              child: Text(category),
+                          items: _categories.map((value) {
+                            return DropdownMenuItem(
+                              value: value,
+                              child: Text(value),
                             );
                           }).toList(),
-                          onChanged: isSaving
+                          onChanged: saving
                               ? null
                               : (value) {
                             if (value == null) return;
-                            setDialogState(() {
-                              selectedCategory = value;
-                            });
+                            setDialogState(() => category = value);
                           },
                         ),
                         const SizedBox(height: 16),
-
                         DropdownButtonFormField<String>(
-                          value: selectedShopId,
+                          value: shopId,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Shop',
-                            prefixIcon:
-                            Icon(Icons.store_outlined),
                           ),
                           items: shops.map((shop) {
-                            return DropdownMenuItem<String>(
+                            return DropdownMenuItem(
                               value: shop.id,
                               child: Text(
                                 shop.name,
@@ -561,23 +501,18 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                               ),
                             );
                           }).toList(),
-                          onChanged: isSaving
+                          onChanged: saving
                               ? null
                               : (value) {
                             setDialogState(() {
-                              selectedShopId = value;
-                              loadPriceForShop(value);
+                              shopId = value;
+                              loadPrice(value);
                             });
                           },
-                          validator: (value) {
-                            if (value == null) {
-                              return 'Select a shop';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                          value == null ? 'Select a shop' : null,
                         ),
                         const SizedBox(height: 16),
-
                         TextFormField(
                           controller: priceController,
                           keyboardType:
@@ -587,20 +522,8 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Current Price',
                             prefixText: '₦ ',
-                            prefixIcon:
-                            Icon(Icons.payments_outlined),
                           ),
                           validator: _validatePrice,
-                        ),
-                        const SizedBox(height: 8),
-
-                        const Text(
-                          'Only the selected shop’s current price '
-                              'will be updated.',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
                         ),
                       ],
                     ),
@@ -608,39 +531,31 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: isSaving
+                    onPressed: saving
                         ? null
                         : () => Navigator.pop(dialogContext),
                     child: const Text('Cancel'),
                   ),
                   ElevatedButton(
-                    onPressed: isSaving
+                    onPressed: saving
                         ? null
                         : () async {
-                      if (!editFormKey.currentState!
-                          .validate()) {
+                      if (!formKey.currentState!.validate()) {
                         return;
                       }
 
-                      final newName =
-                      nameController.text.trim();
-                      final newPriceValue = double.tryParse(
-                        priceController.text.trim(),
-                      );
-                      final shopId = selectedShopId;
+                      final newName = nameController.text.trim();
+                      final newPrice =
+                      double.tryParse(priceController.text.trim());
 
-                      if (newPriceValue == null ||
-                          !newPriceValue.isFinite ||
-                          newPriceValue <= 0 ||
-                          shopId == null) {
+                      if (shopId == null ||
+                          newPrice == null ||
+                          !newPrice.isFinite ||
+                          newPrice <= 0) {
                         return;
                       }
 
-                      final itemProvider =
-                      context.read<ItemProvider>();
-
-                      final duplicate =
-                      itemProvider.items.any(
+                      final duplicate = itemProvider.items.any(
                             (other) =>
                         other.id != item.id &&
                             other.name.trim().toLowerCase() ==
@@ -655,72 +570,54 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                         return;
                       }
 
-                      setDialogState(() {
-                        isSaving = true;
-                      });
+                      setDialogState(() => saving = true);
 
                       try {
-                        // Update the existing item document.
                         final updatedItem = Item(
                           id: item.id,
                           name: newName,
-                          category: selectedCategory,
+                          category: category,
+                          imageUrl: item.imageUrl,
                         );
 
-                        final itemUpdated =
-                        await itemProvider.updateItem(
-                          updatedItem,
-                        );
+                        final itemSaved =
+                        await itemProvider.updateItem(updatedItem);
 
-                        if (!itemUpdated) {
-                          throw Exception(
-                            'Could not update the item.',
-                          );
+                        if (!itemSaved) {
+                          throw Exception('Could not update the item.');
                         }
 
-                        // Update the selected shop's current price.
                         final updatedPrice = Price(
                           id: existingPrice?.id ?? '',
                           itemId: item.id,
-                          shopId: shopId,
+                          shopId: shopId!,
                           university: user.university,
-                          price: newPriceValue,
+                          price: newPrice,
                           updatedAt: DateTime.now(),
                           reportedBy: user.uid,
                         );
 
-                        final priceUpdated =
-                        await priceProvider.updateCurrentPrice(
+                        final priceSaved = existingPrice == null
+                            ? await priceProvider.reportPrice(
+                          updatedPrice,
+                        )
+                            : await priceProvider.updateCurrentPrice(
                           updatedPrice,
                         );
 
-                        if (!priceUpdated) {
+                        if (!priceSaved) {
                           throw Exception(
-                            'The item was updated, but its price '
-                                'could not be saved.',
+                            'Item updated, but price saving failed.',
                           );
                         }
 
                         if (!dialogContext.mounted) return;
 
                         Navigator.pop(dialogContext);
-
-                        _showMessage(
-                          'Item and current price updated successfully.',
-                        );
+                        _showMessage('Item and price updated.');
                       } catch (error, stackTrace) {
-                        debugPrint(
-                          'Error editing item: $error',
-                        );
-                        debugPrintStack(
-                          stackTrace: stackTrace,
-                        );
-
-                        if (dialogContext.mounted) {
-                          setDialogState(() {
-                            isSaving = false;
-                          });
-                        }
+                        debugPrint('Error editing item: $error');
+                        debugPrintStack(stackTrace: stackTrace);
 
                         _showMessage(
                           error.toString().replaceFirst(
@@ -729,19 +626,18 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                           ),
                           isError: true,
                         );
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => saving = false);
+                        }
                       }
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey[900],
-                      foregroundColor: Colors.white,
-                    ),
-                    child: isSaving
+                    child: saving
                         ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
                       ),
                     )
                         : const Text('Save Changes'),
@@ -759,7 +655,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
   }
 
   // ============================================================
-  // CONFIRM ITEM DELETION
+  // DELETE ITEM
   // ============================================================
 
   Future<bool> _confirmDelete(Item item) async {
@@ -769,21 +665,16 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         return AlertDialog(
           title: const Text('Delete Item?'),
           content: Text(
-            'Are you sure you want to delete "${item.name}" '
-                'and its associated current prices?\n\n'
+            'Delete "${item.name}" and its associated current prices?\n\n'
                 'This action cannot be undone.',
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
+              onPressed: () => Navigator.pop(dialogContext, true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
@@ -798,20 +689,19 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
     return confirmed ?? false;
   }
 
-  // ============================================================
-  // DELETE ITEM
-  // ============================================================
-
   Future<void> _deleteItem(Item item) async {
+    debugPrint(
+      'DELETE REQUEST: name=${item.name}, '
+          'id=${item.id}, category=${item.category}',
+    );
+
     if (_deletingItemId != null || _isSaving) return;
 
     final confirmed = await _confirmDelete(item);
 
     if (!confirmed || !mounted) return;
 
-    setState(() {
-      _deletingItemId = item.id;
-    });
+    setState(() => _deletingItemId = item.id);
 
     try {
       final success = await context.read<ItemProvider>().deleteItem(
@@ -822,31 +712,23 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
       if (!mounted) return;
 
       if (success) {
-        _showMessage(
-          '${item.name} and its associated prices were deleted.',
-        );
+        _showMessage('${item.name} deleted successfully.');
       } else {
         _showMessage(
-          'Failed to delete ${item.name}. Please try again.',
+          'Failed to delete ${item.name}.',
           isError: true,
         );
       }
     } catch (error, stackTrace) {
-      debugPrint('Error deleting ${item.name}: $error');
+      debugPrint('Delete error for ${item.name}: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       if (mounted) {
-        _showMessage(
-          'An error occurred while deleting ${item.name}.',
-          isError: true,
-        );
+        _showMessage('An error occurred while deleting the item.',
+            isError: true);
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _deletingItemId = null;
-        });
-      }
+      if (mounted) setState(() => _deletingItemId = null);
     }
   }
 
@@ -868,7 +750,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
   }
 
   // ============================================================
-  // BUILD SCREEN
+  // BUILD
   // ============================================================
 
   @override
@@ -882,9 +764,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         foregroundColor: Colors.white,
       ),
       body: itemProvider.isLoading
-          ? const Center(
-        child: CircularProgressIndicator(),
-      )
+          ? const Center(child: CircularProgressIndicator())
           : itemProvider.items.isEmpty
           ? const Center(
         child: Padding(
@@ -909,9 +789,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
               Text(
                 'Tap the + button to add an item.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
+                style: TextStyle(color: Colors.grey),
               ),
             ],
           ),
@@ -922,24 +800,22 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         itemCount: itemProvider.items.length,
         itemBuilder: (context, index) {
           final item = itemProvider.items[index];
-          final isDeleting =
-              _deletingItemId == item.id;
+          final deleting = _deletingItemId == item.id;
 
           return Card(
+            key: ValueKey(item.id),
             margin: const EdgeInsets.only(bottom: 10),
             elevation: 1,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             child: ListTile(
-              contentPadding:
-              const EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 6,
               ),
               leading: CircleAvatar(
-                backgroundColor:
-                Colors.blueGrey.shade50,
+                backgroundColor: Colors.blueGrey.shade50,
                 child: Icon(
                   _getCategoryIcon(item.category),
                   color: Colors.blueGrey,
@@ -951,13 +827,8 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Category: ${item.category}',
-                ),
-              ),
-              trailing: isDeleting
+              subtitle: Text('Category: ${item.category}'),
+              trailing: deleting
                   ? const SizedBox(
                 height: 22,
                 width: 22,
@@ -974,13 +845,10 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                       Icons.edit_outlined,
                       color: Colors.blueGrey,
                     ),
-                    onPressed:
-                    _deletingItemId != null ||
+                    onPressed: _deletingItemId != null ||
                         _isSaving
                         ? null
-                        : () => _showEditItemDialog(
-                      item,
-                    ),
+                        : () => _showEditItemDialog(item),
                   ),
                   IconButton(
                     tooltip: 'Delete item',
@@ -988,8 +856,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
                       IconlyLight.delete,
                       color: Colors.redAccent,
                     ),
-                    onPressed:
-                    _deletingItemId != null ||
+                    onPressed: _deletingItemId != null ||
                         _isSaving
                         ? null
                         : () => _deleteItem(item),
@@ -1001,8 +868,7 @@ class _ManageItemsScreenState extends State<ManageItemsScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed:
-        _isSaving || _deletingItemId != null
+        onPressed: _isSaving || _deletingItemId != null
             ? null
             : _showAddItemDialog,
         backgroundColor: Colors.blueGrey[900],

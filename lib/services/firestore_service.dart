@@ -45,8 +45,8 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 4. DELETE AN ITEM AND ITS ASSOCIATED PRICES
-  // ============================================================
+// DELETE ONE ITEM AND ITS ASSOCIATED PRICES
+// ============================================================
 
   Future<void> deleteItem(
       String itemId, {
@@ -57,53 +57,33 @@ class FirestoreService {
     }
 
     final itemRef = _db.collection('items').doc(itemId);
-    final pricesCollection = _db.collection('prices');
+    final pricesRef = _db.collection('prices');
 
-    final Set<String> priceDocumentIds = {};
+    // Check that the item exists.
+    final itemSnapshot = await itemRef.get();
 
-    // Find prices associated with the item's document ID.
-    final pricesById = await pricesCollection
+    if (!itemSnapshot.exists) {
+      throw Exception('Item not found: $itemId');
+    }
+
+    // Find all current prices belonging to this item.
+    final pricesSnapshot = await pricesRef
         .where('itemId', isEqualTo: itemId)
         .get();
 
-    for (final doc in pricesById.docs) {
-      priceDocumentIds.add(doc.id);
+    // Delete prices and the item together when possible.
+    final batch = _db.batch();
+
+    for (final priceDoc in pricesSnapshot.docs) {
+      batch.delete(priceDoc.reference);
     }
 
-    // Support legacy price records that stored the item name.
-    //
-    // NOTE:
-    // If multiple items have the same name, this legacy query
-    // cannot distinguish which item a price belongs to.
-    if (itemName != null && itemName.trim().isNotEmpty) {
-      final pricesByName = await pricesCollection
-          .where('itemId', isEqualTo: itemName.trim())
-          .get();
+    batch.delete(itemRef);
 
-      for (final doc in pricesByName.docs) {
-        priceDocumentIds.add(doc.id);
-      }
-    }
-
-    // Delete associated prices in batches.
-    // Keep each batch below Firestore's 500-write limit.
-    final List<String> ids = priceDocumentIds.toList();
-
-    for (var i = 0; i < ids.length; i += 450) {
-      final batch = _db.batch();
-
-      final end = (i + 450 < ids.length) ? i + 450 : ids.length;
-
-      for (var j = i; j < end; j++) {
-        batch.delete(pricesCollection.doc(ids[j]));
-      }
-
-      await batch.commit();
-    }
-
-    // Delete the item only after its associated prices are deleted.
-    await itemRef.delete();
+    await batch.commit();
   }
+
+
 
   // ============================================================
   // 5. GET PRICES FOR A SPECIFIC UNIVERSITY
@@ -141,39 +121,21 @@ class FirestoreService {
   // ============================================================
 
   Future<void> updatePrice(Price price) async {
-    if (price.itemId.trim().isEmpty) {
-      throw ArgumentError('Item ID cannot be empty.');
-    }
-
-    if (price.shopId.trim().isEmpty) {
-      throw ArgumentError('Shop ID cannot be empty.');
-    }
-
-    if (price.university.trim().isEmpty) {
-      throw ArgumentError('University cannot be empty.');
+    if (price.itemId.trim().isEmpty ||
+        price.shopId.trim().isEmpty ||
+        price.university.trim().isEmpty) {
+      throw ArgumentError('Item, shop, and university are required.');
     }
 
     if (!price.price.isFinite || price.price <= 0) {
       throw ArgumentError('Price must be greater than zero.');
     }
 
-    final pricesCollection = _db.collection('prices');
+    final priceId = price.id.trim().isNotEmpty
+        ? price.id
+        : '${price.shopId}_${price.itemId.replaceAll(' ', '_')}';
 
-    // Preserve the existing Firestore document ID when editing.
-    if (price.id.trim().isNotEmpty) {
-      await pricesCollection.doc(price.id).set(
-        price.toMap(),
-        SetOptions(merge: true),
-      );
-
-      return;
-    }
-
-    // Generate an ID for a new price record.
-    final uniqueId =
-        '${price.shopId}_${price.itemId.replaceAll(' ', '_')}';
-
-    await pricesCollection.doc(uniqueId).set(
+    await _db.collection('prices').doc(priceId).set(
       price.toMap(),
       SetOptions(merge: true),
     );
@@ -588,6 +550,40 @@ class FirestoreService {
           .toList(),
     );
   }
+
+  Future<void> removeItemFromShop({
+    required String itemId,
+    required String shopId,
+  }) async {
+    if (itemId.trim().isEmpty || shopId.trim().isEmpty) {
+      throw ArgumentError('Item ID and Shop ID are required.');
+    }
+
+    final snapshot = await _db
+        .collection('prices')
+        .where('itemId', isEqualTo: itemId)
+        .where('shopId', isEqualTo: shopId)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      throw Exception('No current price found for this item in the selected shop.');
+    }
+
+    // Delete in batches to avoid Firestore's 500-operation limit.
+    for (var i = 0; i < snapshot.docs.length; i += 450) {
+      final batch = _db.batch();
+      final end = (i + 450 < snapshot.docs.length)
+          ? i + 450
+          : snapshot.docs.length;
+
+      for (var j = i; j < end; j++) {
+        batch.delete(snapshot.docs[j].reference);
+      }
+
+      await batch.commit();
+    }
+  }
+
 
   // ============================================================
   // 28. GET ALL COMPLAINTS BELONGING TO A UNIVERSITY

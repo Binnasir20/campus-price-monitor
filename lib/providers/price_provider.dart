@@ -96,6 +96,27 @@ class PriceProvider with ChangeNotifier {
     }
   }
 
+// ============================================================
+// REMOVE AN ITEM FROM A SPECIFIC SHOP (ADMIN)
+// ============================================================
+
+  Future<bool> removeItemFromShop({
+    required String itemId,
+    required String shopId,
+  }) async {
+    try {
+      await _firestoreService.removeItemFromShop(
+        itemId: itemId,
+        shopId: shopId,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Error removing item from shop: $e');
+      return false;
+    }
+  }
+
+
   // SUBMIT A PRICE REPORT.
   Future<bool> submitPriceReport(PriceReport report) async {
     _isLoading = true;

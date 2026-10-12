@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/item_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../services/location_service.dart';
 import 'report_price_screen.dart';
@@ -25,7 +26,6 @@ State<ShopDetailScreen> createState() => _ShopDetailScreenState();
 class _ShopDetailScreenState extends State<ShopDetailScreen> {
 Position? _currentPosition;
 
-// Distance from the right and bottom edges of the screen.
 double _right = 16;
 double _bottom = 24;
 
@@ -36,35 +36,39 @@ static const double _edgePadding = 8;
 @override
 void initState() {
 super.initState();
+
+WidgetsBinding.instance.addPostFrameCallback((_) {
+if (mounted) {
+context.read<ItemProvider>().fetchItems();
+}
+});
+
 _loadLocation();
 }
 
+// Get the user's current location.
 Future<void> _loadLocation() async {
 try {
 final position = await LocationService.getCurrentLocation();
 
-if (!mounted) return;
+if (!mounted || position == null) return;
 
 setState(() {
 _currentPosition = position;
 });
 } catch (e) {
-debugPrint('Could not get location: $e');
+debugPrint('Could not get current location: $e');
 }
 }
 
-void _onButtonDragged(
-DragUpdateDetails details,
-Size screenSize,
-) {
+// Keep the report button inside the screen when dragged.
+void _onButtonDragged(DragUpdateDetails details, Size screenSize) {
 setState(() {
-// Dragging right decreases the right-edge distance.
 _right = (_right - details.delta.dx).clamp(
 _edgePadding,
 screenSize.width - _buttonWidth - _edgePadding,
 );
 
-// Dragging down decreases the bottom-edge distance.
 _bottom = (_bottom - details.delta.dy).clamp(
 _edgePadding,
 screenSize.height - _buttonHeight - kToolbarHeight - 40,
@@ -72,16 +76,44 @@ screenSize.height - _buttonHeight - kToolbarHeight - 40,
 });
 }
 
+// Open navigation to the shop.
+Future<void> _openDirections() async {
+final latitude = widget.shop.latitude;
+final longitude = widget.shop.longitude;
+
+if (latitude == null || longitude == null) return;
+
+try {
+await LocationService.navigateTo(latitude, longitude);
+} catch (e) {
+debugPrint('Navigation error: $e');
+
+if (!mounted) return;
+
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('Could not open navigation.'),
+),
+);
+}
+}
+
 @override
 Widget build(BuildContext context) {
-final priceProvider = context.watch<PriceProvider>();
+final prices = context.watch<PriceProvider>().prices;
+final items = context.watch<ItemProvider>().items;
+final user = context.watch<AuthProvider>().userModel;
 
-final shopPrices = priceProvider.prices
+final itemNames = {
+for (final item in items) item.id: item.name,
+};
+
+// Show only prices belonging to this shop and existing items.
+final shopPrices = prices
     .where((price) => price.shopId == widget.shop.id)
+    .where((price) => itemNames.containsKey(price.itemId))
     .toList()
 ..sort((a, b) => a.price.compareTo(b.price));
-
-final user = context.watch<AuthProvider>().userModel;
 
 return Scaffold(
 appBar: AppBar(
@@ -108,12 +140,10 @@ fontWeight: FontWeight.bold,
 backgroundColor: Colors.teal,
 foregroundColor: Colors.white,
 ),
-
 body: LayoutBuilder(
 builder: (context, constraints) {
 final screenSize = MediaQuery.of(context).size;
 
-// Keep the button within the available screen bounds.
 final maxRight = (constraints.maxWidth -
 _buttonWidth -
 _edgePadding)
@@ -129,16 +159,13 @@ _bottom = _bottom.clamp(_edgePadding, maxBottom);
 
 return Stack(
 children: [
-// Main shop content.
 Column(
 children: [
 _buildShopHeader(),
-
 Padding(
 padding: const EdgeInsets.all(15),
 child: Row(
-mainAxisAlignment:
-MainAxisAlignment.spaceBetween,
+mainAxisAlignment: MainAxisAlignment.spaceBetween,
 children: [
 const Text(
 'Items & Prices',
@@ -158,13 +185,10 @@ fontSize: 12,
 ],
 ),
 ),
-
 Expanded(
 child: shopPrices.isEmpty
 ? _buildEmptyState()
     : ListView.builder(
-// Extra space lets users scroll the final
-// item clear of the floating button.
 padding: const EdgeInsets.fromLTRB(
 15,
 0,
@@ -181,21 +205,19 @@ margin: const EdgeInsets.only(
 bottom: 12,
 ),
 shape: RoundedRectangleBorder(
-borderRadius:
-BorderRadius.circular(12),
+borderRadius: BorderRadius.circular(12),
 ),
 child: ListTile(
 leading: CircleAvatar(
-backgroundColor:
-Colors.orange.shade100,
+backgroundColor: Colors.orange.shade100,
 child: const Icon(
-Icons.fastfood,
+Icons.shopping_basket_outlined,
 color: Colors.teal,
 size: 20,
 ),
 ),
 title: Text(
-price.itemId,
+itemNames[price.itemId]!,
 style: const TextStyle(
 fontWeight: FontWeight.bold,
 fontSize: 15,
@@ -224,8 +246,8 @@ color: Colors.teal,
 ],
 ),
 
-// Draggable Report Price button.
-if (user?.isAdmin == false)
+// Draggable Report Price button for normal users.
+if (user != null && !user.isAdmin)
 Positioned(
 right: _right,
 bottom: _bottom,
@@ -281,6 +303,7 @@ fontWeight: FontWeight.bold,
 );
 }
 
+// Display shop information and distance.
 Widget _buildShopHeader() {
 double? distance;
 
@@ -328,6 +351,7 @@ fontWeight: FontWeight.bold,
 const SizedBox(height: 4),
 Text(
 '${widget.shop.location} (${widget.shop.campus})',
+textAlign: TextAlign.center,
 style: TextStyle(
 color: Colors.grey.shade700,
 ),
@@ -343,14 +367,12 @@ fontWeight: FontWeight.bold,
 ),
 ),
 ),
-const SizedBox(height: 16),
 if (widget.shop.latitude != null &&
 widget.shop.longitude != null)
-ElevatedButton.icon(
-onPressed: () => LocationService.navigateTo(
-widget.shop.latitude!,
-widget.shop.longitude!,
-),
+Padding(
+padding: const EdgeInsets.only(top: 16),
+child: ElevatedButton.icon(
+onPressed: _openDirections,
 icon: const Icon(Icons.directions),
 label: const Text('GET DIRECTIONS'),
 style: ElevatedButton.styleFrom(
@@ -361,11 +383,13 @@ borderRadius: BorderRadius.circular(30),
 ),
 ),
 ),
+),
 ],
 ),
 );
 }
 
+// Display a message when the shop has no current prices.
 Widget _buildEmptyState() {
 return Center(
 child: Column(
