@@ -88,16 +88,33 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
     );
   }
 
+  OutlineInputBorder _inputBorder() {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: BorderSide(color: AppColors.primary),
+    );
+  }
+
+  TextStyle _textStyle(){
+    return TextStyle(
+      color: Colors.grey,
+      fontSize: 13,
+
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final shops = Provider.of<ShopProvider>(context).shops;
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
         title: const Text(
           "Report a Price",
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -110,10 +127,14 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
             children: [
               DropdownButtonFormField<String>(
                 value: _selectedShopId,
-                decoration: const InputDecoration(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                dropdownColor: AppColors.background,
+                decoration: InputDecoration(
+                  labelStyle: _textStyle(),
                   labelText: "Shop",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.store),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder(),
+                  prefixIcon: Icon(IconlyLight.buy,size: 20,color: AppColors.primary,),
                 ),
                 items: shops.map((shop) {
                   return DropdownMenuItem(
@@ -136,11 +157,15 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
               const SizedBox(height: 20),
 
               TextFormField(
+                cursorColor: AppColors.primary,
+                cursorHeight: 16,
                 controller: _itemController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "Item name (e.g. Bread)",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.shopping_basket),
+                  labelStyle: _textStyle(),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder(),
+                  prefixIcon: Icon(IconlyLight.category,size: 20,color: AppColors.primary,),
                 ),
                 validator: (value) {
                   return value == null || value.trim().isEmpty
@@ -153,10 +178,14 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
 
               TextFormField(
                 controller: _priceController,
-                decoration: const InputDecoration(
+                cursorColor: AppColors.primary,
+                cursorHeight: 16,
+                decoration: InputDecoration(
                   labelText: "Price (₦)",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(IconlyLight.discount),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder(),
+                  labelStyle: _textStyle(),
+                  prefixIcon: Icon(Icons.price_change,color: AppColors.primary,size: 20,),
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
@@ -181,7 +210,7 @@ class _ReportPriceScreenState extends State<ReportPriceScreen> {
                       : ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(55),
-                      backgroundColor: Color(AppColors.bgColor),
+                      backgroundColor: Colors.teal,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: _submitReport,

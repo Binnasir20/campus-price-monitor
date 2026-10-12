@@ -16,8 +16,9 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
 
   @override
   void initState() {
-    _initializeSystemUI();
     super.initState();
+    _initializeSystemUI();
+
   }
 
   void _initializeSystemUI() {
@@ -49,7 +50,7 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Image fix
+                // Image
                 Container(
                   width: MediaQuery.of(context).size.width,
                   clipBehavior: Clip.antiAlias,
@@ -96,7 +97,7 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
                                 style: TextStyle(
                                   fontSize: 30,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(AppColors.bgColor),
+                                  color: Colors.teal,
                                 ),
                               ),
                               TextSpan(
@@ -128,7 +129,7 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
                             );
                           },
                           isLoading: false,
-                          bg: Color(AppColors.bgColor),
+                          bg: Colors.teal,
                           hasIcon: true,
                         ),
                         const SizedBox(height: 15),
@@ -141,7 +142,7 @@ class _RegisterOrSignUpScreenState extends State<RegisterOrSignUpScreen> {
                           },
                           isLoading: false,
                           isOutlined: true,
-                          textColor: Color(AppColors.bgColor),
+                          textColor: Colors.teal,
                         ),
                         const SizedBox(height: 15),
                       ],

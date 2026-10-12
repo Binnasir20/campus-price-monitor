@@ -1,7 +1,5 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
 import '../model/price_model.dart';
 import '../model/price_report_model.dart';
 import '../services/firestore_service.dart';
@@ -10,11 +8,7 @@ class PriceProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
 
   List<Price> _prices = [];
-
-  // Reports submitted by users for admin review
   List<PriceReport> _priceReports = [];
-
-  // Reports submitted by the current user
   List<PriceReport> _myPriceReports = [];
 
   bool _isLoading = false;
@@ -25,41 +19,44 @@ class PriceProvider with ChangeNotifier {
   StreamSubscription? _myPriceReportSubscription;
 
   List<Price> get prices => _prices;
-
-  // Admin reports
   List<PriceReport> get priceReports => _priceReports;
-
-  // Current user's reports
   List<PriceReport> get myPriceReports => _myPriceReports;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  void fetchPricesByUniversity(String universityName) {
+  // LOAD PRICES BY UNIVERSITY.
+  Future<void> fetchPricesByUniversity(String universityName) async {
+    await _priceSubscription?.cancel();
+    _priceSubscription = null;
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    _priceSubscription?.cancel();
-
     _priceSubscription = _firestoreService
         .getPricesByUniversity(universityName)
-        .listen((priceData) {
-      _prices = priceData;
-      _isLoading = false;
-      _errorMessage = null;
-      notifyListeners();
-    }, onError: (error) {
-      _prices = [];
-      _isLoading = false;
-      _errorMessage = "Error fetching prices: $error";
-      print(_errorMessage);
-      notifyListeners();
-    });
+        .listen(
+          (priceData) {
+        _prices = priceData;
+        _isLoading = false;
+        _errorMessage = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _prices = [];
+        _isLoading = false;
+        _errorMessage = 'Error fetching prices: $error';
+        debugPrint(_errorMessage);
+        notifyListeners();
+      },
+    );
   }
 
+  // ADD OR UPDATE A PRICE.
   Future<bool> reportPrice(Price price) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -67,19 +64,42 @@ class PriceProvider with ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
-
       return true;
     } catch (e) {
       _isLoading = false;
+      _errorMessage = 'Error saving price: $e';
+      debugPrint(_errorMessage);
       notifyListeners();
-
-      print("Provider Error: $e");
       return false;
     }
   }
 
+  // ============================================================
+// UPDATE AN EXISTING CURRENT PRICE (ADMIN)
+// ============================================================
+
+  Future<bool> updateCurrentPrice(Price price) async {
+    _errorMessage = null;
+
+    try {
+      await _firestoreService.updatePrice(price);
+
+      _errorMessage = null;
+      return true;
+    } catch (e, stackTrace) {
+      _errorMessage = 'Error updating current price: $e';
+
+      debugPrint(_errorMessage);
+      debugPrintStack(stackTrace: stackTrace);
+
+      return false;
+    }
+  }
+
+  // SUBMIT A PRICE REPORT.
   Future<bool> submitPriceReport(PriceReport report) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -87,57 +107,71 @@ class PriceProvider with ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
-
       return true;
     } catch (e) {
       _isLoading = false;
+      _errorMessage = 'Error submitting price report: $e';
+      debugPrint(_errorMessage);
       notifyListeners();
-
-      print("Provider Error: $e");
       return false;
     }
   }
 
-  // GET ALL REPORTS FOR ADMIN
-  void fetchPriceReportsByUniversity(String universityName) {
-    _priceReportSubscription?.cancel();
+  // LOAD ALL REPORTS FOR ADMIN REVIEW.
+  Future<void> fetchPriceReportsByUniversity(
+      String universityName,
+      ) async {
+    await _priceReportSubscription?.cancel();
+    _priceReportSubscription = null;
 
     _priceReportSubscription = _firestoreService
         .getPriceReportsByUniversity(universityName)
-        .listen((reportData) {
-      _priceReports = reportData;
-      notifyListeners();
-    }, onError: (error) {
-      _priceReports = [];
-      print("Error fetching price reports: $error");
-      notifyListeners();
-    });
+        .listen(
+          (reportData) {
+        _priceReports = reportData;
+        notifyListeners();
+      },
+      onError: (error) {
+        _priceReports = [];
+        debugPrint('Error fetching price reports: $error');
+        notifyListeners();
+      },
+    );
   }
 
-  // GET REPORTS SUBMITTED BY THE CURRENT USER
-  void fetchMyPriceReports(String uid) {
-    print("FETCHING MY REPORTS FOR: $uid");
+  // LOAD REPORTS SUBMITTED BY THE CURRENT USER.
+  Future<void> fetchMyPriceReports(String uid) async {
+    debugPrint('FETCHING MY REPORTS FOR: $uid');
 
-    _myPriceReportSubscription?.cancel();
+    await _myPriceReportSubscription?.cancel();
+    _myPriceReportSubscription = null;
 
     _myPriceReportSubscription = _firestoreService
         .getPriceReportsByUser(uid)
-        .listen((reportData) {
-      print("MY REPORTS RECEIVED: ${reportData.length}");
-      _myPriceReports = reportData;
-      notifyListeners();
-    }, onError: (error) {
-      print("MY REPORTS ERROR: $error");
-      _myPriceReports = [];
-      print("Error fetching my price reports: $error");
-      notifyListeners();
-    });
+        .listen(
+          (reportData) {
+        debugPrint('MY REPORTS RECEIVED: ${reportData.length}');
+        _myPriceReports = reportData;
+        notifyListeners();
+      },
+      onError: (error) {
+        _myPriceReports = [];
+        debugPrint('MY REPORTS ERROR: $error');
+        notifyListeners();
+      },
+    );
   }
 
+  // APPROVE OR REJECT A PRICE REPORT.
   Future<bool> updatePriceReportStatus(
       String reportId,
       String status,
       ) async {
+    if (!['pending', 'approved', 'rejected'].contains(status)) {
+      debugPrint('Invalid price report status: $status');
+      return false;
+    }
+
     try {
       await _firestoreService.updatePriceReportStatus(
         reportId,
@@ -146,7 +180,7 @@ class PriceProvider with ChangeNotifier {
 
       return true;
     } catch (e) {
-      print("Provider Error: $e");
+      debugPrint('Provider Error updating report status: $e');
       return false;
     }
   }
@@ -154,7 +188,18 @@ class PriceProvider with ChangeNotifier {
   void clearPrices() {
     _priceSubscription?.cancel();
     _priceSubscription = null;
+
+    _priceReportSubscription?.cancel();
+    _priceReportSubscription = null;
+
+    _myPriceReportSubscription?.cancel();
+    _myPriceReportSubscription = null;
+
     _prices = [];
+    _priceReports = [];
+    _myPriceReports = [];
+
+    _errorMessage = null;
     notifyListeners();
   }
 

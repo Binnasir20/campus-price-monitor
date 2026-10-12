@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   OutlineInputBorder _inputBorder() {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide(color: Color(AppColors.bgColor)),
+      borderSide: BorderSide(color: AppColors.primary),
     );
   }
   
@@ -63,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Icon(
               IconlyBold.chart,
               size: 60,
-              color: Color(AppColors.bgColor),
+              color: Colors.teal,
             ),
             const SizedBox(height: 24),
             const Text(
@@ -78,7 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
             // Email field
             TextField(
               controller: _emailController,
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: AppColors.primary,
+              cursorHeight: 17,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
@@ -99,7 +100,8 @@ class _LoginScreenState extends State<LoginScreen> {
             TextField(
               controller: _passwordController,
               obscureText: !_isPasswordVisible,
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: AppColors.primary,
+              cursorHeight: 17,
               keyboardType: TextInputType.visiblePassword,
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
@@ -130,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Text(
                   "Forgot Password?",
                   style: TextStyle(
-                    color: Color(AppColors.bgColor),
+                    color: Colors.teal,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -143,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // Login button
             if (auth.isLoading)
               const CircularProgressIndicator(
-                color: Colors.orange,
+                color: Colors.teal,
               )
             else
               GestureDetector(
@@ -152,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 40,
                 decoration: BoxDecoration(
-                color: Color(AppColors.bgColor),
+                color: Colors.teal,
                 borderRadius: BorderRadius.circular(11),
     ),
                   child: Center(
@@ -190,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextSpan(
                       text: "Register",
                       style: TextStyle(
-                        color: Color(AppColors.bgColor),
+                        color: Colors.teal,
                         fontWeight: FontWeight.w600,
                         fontSize: 14
                       ),
@@ -229,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin(AuthProvider auth) async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
       _showSnackBar("Please enter email and password", Colors.red);
@@ -269,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text("Account not found. Want to register?"),
-        backgroundColor: Colors.orange.shade800,
+        backgroundColor: Colors.teal.shade800,
         duration: const Duration(seconds: 5),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(

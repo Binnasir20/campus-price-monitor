@@ -6,6 +6,7 @@ import '../model/price_model.dart';
 import '../model/complaint_model.dart';
 import '../model/shop_model.dart';
 import '../model/price_report_model.dart';
+import '../model/user_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -22,26 +23,90 @@ class FirestoreService {
     );
   }
 
-  // 1b. ADD A NEW ITEM (Admin only)
+  // ============================================================
+  // 2. ADD A NEW ITEM
+  // ============================================================
 
-  Future<void> addItem(Item item) async {
-    await _db.collection('items').add(item.toMap());
-  }
-
-  // 1c. UPDATE AN ITEM (Admin only)
-
-  Future<void> updateItem(Item item) async {
-    await _db.collection('items').doc(item.id).update(item.toMap());
-  }
-
-  // 1d. DELETE AN ITEM (Admin only)
-
-  Future<void> deleteItem(String itemId) async {
-    await _db.collection('items').doc(itemId).delete();
+  Future<String> addItem(Item item) async {
+    final docRef = await _db.collection('items').add(item.toMap());
+    return docRef.id;
   }
 
   // ============================================================
-  // 2. GET PRICES FOR A SPECIFIC UNIVERSITY
+  // 3. UPDATE AN ITEM
+  // ============================================================
+
+  Future<void> updateItem(Item item) async {
+    if (item.id.trim().isEmpty) {
+      throw ArgumentError('Item ID cannot be empty.');
+    }
+
+    await _db.collection('items').doc(item.id).update(item.toMap());
+  }
+
+  // ============================================================
+  // 4. DELETE AN ITEM AND ITS ASSOCIATED PRICES
+  // ============================================================
+
+  Future<void> deleteItem(
+      String itemId, {
+        String? itemName,
+      }) async {
+    if (itemId.trim().isEmpty) {
+      throw ArgumentError('Item ID cannot be empty.');
+    }
+
+    final itemRef = _db.collection('items').doc(itemId);
+    final pricesCollection = _db.collection('prices');
+
+    final Set<String> priceDocumentIds = {};
+
+    // Find prices associated with the item's document ID.
+    final pricesById = await pricesCollection
+        .where('itemId', isEqualTo: itemId)
+        .get();
+
+    for (final doc in pricesById.docs) {
+      priceDocumentIds.add(doc.id);
+    }
+
+    // Support legacy price records that stored the item name.
+    //
+    // NOTE:
+    // If multiple items have the same name, this legacy query
+    // cannot distinguish which item a price belongs to.
+    if (itemName != null && itemName.trim().isNotEmpty) {
+      final pricesByName = await pricesCollection
+          .where('itemId', isEqualTo: itemName.trim())
+          .get();
+
+      for (final doc in pricesByName.docs) {
+        priceDocumentIds.add(doc.id);
+      }
+    }
+
+    // Delete associated prices in batches.
+    // Keep each batch below Firestore's 500-write limit.
+    final List<String> ids = priceDocumentIds.toList();
+
+    for (var i = 0; i < ids.length; i += 450) {
+      final batch = _db.batch();
+
+      final end = (i + 450 < ids.length) ? i + 450 : ids.length;
+
+      for (var j = i; j < end; j++) {
+        batch.delete(pricesCollection.doc(ids[j]));
+      }
+
+      await batch.commit();
+    }
+
+    // Delete the item only after its associated prices are deleted.
+    await itemRef.delete();
+  }
+
+  // ============================================================
+  // 5. GET PRICES FOR A SPECIFIC UNIVERSITY
   // ============================================================
 
   Stream<List<Price>> getPricesByUniversity(String universityName) {
@@ -57,17 +122,6 @@ class FirestoreService {
     )
         .snapshots()
         .map((snapshot) {
-      print("========== PRICES FROM FIRESTORE ==========");
-      print("University: ${universityName.trim()}");
-      print("Number of price documents: ${snapshot.docs.length}");
-
-      for (var doc in snapshot.docs) {
-        print("PRICE DOC ID: ${doc.id}");
-        print("ITEM ID: ${doc.data()['itemId']}");
-      }
-
-      print("==========================================");
-
       return snapshot.docs
           .map((doc) => Price.fromMap(doc.data(), doc.id))
           .toList();
@@ -75,7 +129,7 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 3. SUBMIT A COMPLAINT
+  // 6. SUBMIT A COMPLAINT
   // ============================================================
 
   Future<void> submitComplaint(Complaint complaint) async {
@@ -83,21 +137,50 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 4. REPORT / UPDATE A PRICE
+  // 7. ADD OR UPDATE A CURRENT PRICE
   // ============================================================
 
   Future<void> updatePrice(Price price) async {
-    final uniqueId =
-        "${price.shopId}_${price.itemId.replaceAll(' ', '_')}";
+    if (price.itemId.trim().isEmpty) {
+      throw ArgumentError('Item ID cannot be empty.');
+    }
 
-    await _db
-        .collection('prices')
-        .doc(uniqueId)
-        .set(price.toMap());
+    if (price.shopId.trim().isEmpty) {
+      throw ArgumentError('Shop ID cannot be empty.');
+    }
+
+    if (price.university.trim().isEmpty) {
+      throw ArgumentError('University cannot be empty.');
+    }
+
+    if (!price.price.isFinite || price.price <= 0) {
+      throw ArgumentError('Price must be greater than zero.');
+    }
+
+    final pricesCollection = _db.collection('prices');
+
+    // Preserve the existing Firestore document ID when editing.
+    if (price.id.trim().isNotEmpty) {
+      await pricesCollection.doc(price.id).set(
+        price.toMap(),
+        SetOptions(merge: true),
+      );
+
+      return;
+    }
+
+    // Generate an ID for a new price record.
+    final uniqueId =
+        '${price.shopId}_${price.itemId.replaceAll(' ', '_')}';
+
+    await pricesCollection.doc(uniqueId).set(
+      price.toMap(),
+      SetOptions(merge: true),
+    );
   }
 
   // ============================================================
-  // 5. GET ONLY VERIFIED SHOPS
+  // 8. GET VERIFIED SHOPS FOR A UNIVERSITY
   // ============================================================
 
   Stream<List<Shop>> getVerifiedShopsByUniversity(
@@ -122,7 +205,7 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 6. ADD A NEW SHOP
+  // 9. ADD A NEW SHOP
   // ============================================================
 
   Future<void> addShop(Shop shop) async {
@@ -130,7 +213,7 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 7. GET ALL COMPLAINTS FOR ADMIN
+  // 10. GET ALL COMPLAINTS FOR ADMIN
   // ============================================================
 
   Stream<List<Complaint>> getAllComplaintsByUniversity(
@@ -155,28 +238,38 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 8. DELETE A COMPLAINT
+  // 11. RESOLVE A COMPLAINT
   // ============================================================
 
-  Future<void> deleteComplaint(String complaintId) async {
-    await _db
-        .collection('complaints')
-        .doc(complaintId)
-        .delete();
+  Future<void> resolveComplaint(String complaintId) async {
+    if (complaintId.trim().isEmpty) {
+      throw ArgumentError('Complaint ID cannot be empty.');
+    }
+
+    final complaintRef =
+    _db.collection('complaints').doc(complaintId);
+
+    final complaintDoc = await complaintRef.get();
+
+    if (!complaintDoc.exists) {
+      throw Exception('Complaint not found.');
+    }
+
+    await complaintRef.update({
+      'status': 'resolved',
+    });
   }
 
   // ============================================================
-  // 9. SUBMIT A PRICE REPORT
+  // 12. SUBMIT A PRICE REPORT
   // ============================================================
 
   Future<void> submitPriceReport(PriceReport report) async {
-    await _db
-        .collection('priceReports')
-        .add(report.toMap());
+    await _db.collection('priceReports').add(report.toMap());
   }
 
   // ============================================================
-  // 10. GET PRICE REPORTS FOR ADMIN
+  // 13. GET PRICE REPORTS FOR ADMIN
   // ============================================================
 
   Stream<List<PriceReport>> getPriceReportsByUniversity(
@@ -201,52 +294,58 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 11. UPDATE PRICE REPORT STATUS
+  // 14. UPDATE PRICE REPORT STATUS
   // ============================================================
 
   Future<void> updatePriceReportStatus(
       String reportId,
       String status,
       ) async {
-    final reportDoc = await _db
-        .collection('priceReports')
-        .doc(reportId)
-        .get();
+    const allowedStatuses = {
+      'pending',
+      'approved',
+      'rejected',
+    };
 
-    if (!reportDoc.exists) {
-      throw Exception('Price report not found');
+    if (reportId.trim().isEmpty) {
+      throw ArgumentError('Report ID cannot be empty.');
     }
 
-    await _db
-        .collection('priceReports')
-        .doc(reportId)
-        .update({
+    if (!allowedStatuses.contains(status)) {
+      throw ArgumentError('Invalid price report status: $status');
+    }
+
+    final reportRef = _db.collection('priceReports').doc(reportId);
+    final reportDoc = await reportRef.get();
+
+    if (!reportDoc.exists) {
+      throw Exception('Price report not found.');
+    }
+
+    await reportRef.update({
       'status': status,
     });
   }
 
   // ============================================================
-  // 12. MARK NOTIFICATION AS READ
+  // 15. MARK NOTIFICATION AS READ
   // ============================================================
 
-  Future<void> markNotificationAsRead(
-      String notificationId,
-      ) async {
-    await _db
-        .collection('notifications')
-        .doc(notificationId)
-        .update({
+  Future<void> markNotificationAsRead(String notificationId) async {
+    if (notificationId.trim().isEmpty) {
+      throw ArgumentError('Notification ID cannot be empty.');
+    }
+
+    await _db.collection('notifications').doc(notificationId).update({
       'isRead': true,
     });
   }
 
   // ============================================================
-  // 13. GET NOTIFICATIONS FOR A SPECIFIC USER
+  // 16. GET NOTIFICATIONS FOR A SPECIFIC USER
   // ============================================================
 
-  Stream<List<AppNotification>> getNotificationsByUser(
-      String uid,
-      ) {
+  Stream<List<AppNotification>> getNotificationsByUser(String uid) {
     return _db
         .collection('notifications')
         .where(
@@ -271,23 +370,17 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 14. GET USER NAME
+  // 17. GET USER NAME
   // ============================================================
 
   Future<String> getUserName(String uid) async {
-    // First, check if the UID is the document ID.
-    final userDoc = await _db
-        .collection('users')
-        .doc(uid)
-        .get();
+    final userDoc = await _db.collection('users').doc(uid).get();
 
     if (userDoc.exists) {
       final data = userDoc.data();
-
-      return data?['name'] ?? 'Unknown user';
+      return data?['name']?.toString() ?? 'Unknown user';
     }
 
-    // If not, search for the UID inside the document.
     final snapshot = await _db
         .collection('users')
         .where(
@@ -298,30 +391,27 @@ class FirestoreService {
         .get();
 
     if (snapshot.docs.isNotEmpty) {
-      final data = snapshot.docs.first.data();
-
-      return data['name'] ?? 'Unknown user';
+      return snapshot.docs.first.data()['name']?.toString() ??
+          'Unknown user';
     }
 
     return 'Unknown user';
   }
 
   // ============================================================
-  // 15. GET ALL USER NAMES
+  // 18. GET ALL USER NAMES
   // ============================================================
 
   Future<Map<String, String>> getUserNames() async {
-    final snapshot = await _db
-        .collection('users')
-        .get();
+    final snapshot = await _db.collection('users').get();
 
     final Map<String, String> userNames = {};
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
 
-      final uid = data['uid'] ?? doc.id;
-      final name = data['name'] ?? 'Unknown user';
+      final uid = data['uid']?.toString() ?? doc.id;
+      final name = data['name']?.toString() ?? 'Unknown user';
 
       userNames[uid] = name;
     }
@@ -330,12 +420,10 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 16. GET PRICE REPORTS SUBMITTED BY A USER
+  // 19. GET PRICE REPORTS SUBMITTED BY A USER
   // ============================================================
 
-  Stream<List<PriceReport>> getPriceReportsByUser(
-      String uid,
-      ) {
+  Stream<List<PriceReport>> getPriceReportsByUser(String uid) {
     return _db
         .collection('priceReports')
         .where(
@@ -355,56 +443,80 @@ class FirestoreService {
   }
 
   // ============================================================
-  // 17. GET SHOP NAME
+  // 20. GET SHOP NAME
   // ============================================================
 
   Future<String> getShopName(String shopId) async {
-    final doc = await _db
-        .collection('shops')
-        .doc(shopId)
-        .get();
+    final doc = await _db.collection('shops').doc(shopId).get();
 
     if (!doc.exists) {
       return 'Unknown Shop';
     }
 
-    return doc.data()?['name'] ?? 'Unknown Shop';
+    return doc.data()?['name']?.toString() ?? 'Unknown Shop';
   }
 
   // ============================================================
-  // ADMIN METHODS
+  // 21. VERIFY SHOP
   // ============================================================
 
-  // 18. VERIFY SHOP
-
   Future<void> verifyShop(String shopId) async {
-    await _db
-        .collection('shops')
-        .doc(shopId)
-        .update({
+    if (shopId.trim().isEmpty) {
+      throw ArgumentError('Shop ID cannot be empty.');
+    }
+
+    await _db.collection('shops').doc(shopId).update({
       'isVerified': true,
     });
   }
 
-  // 19. UPDATE SHOP
+  // ============================================================
+  // 22. UPDATE SHOP
+  // ============================================================
 
   Future<void> updateShop(Shop shop) async {
-    await _db
-        .collection('shops')
-        .doc(shop.id)
-        .update(shop.toMap());
+    if (shop.id.trim().isEmpty) {
+      throw ArgumentError('Shop ID cannot be empty.');
+    }
+
+    await _db.collection('shops').doc(shop.id).update(shop.toMap());
   }
 
-  // 20. DELETE SHOP
+  // ============================================================
+  // 23. DELETE SHOP
+  // ============================================================
 
   Future<void> deleteShop(String shopId) async {
-    await _db
-        .collection('shops')
-        .doc(shopId)
-        .delete();
+    if (shopId.trim().isEmpty) {
+      throw ArgumentError('Shop ID cannot be empty.');
+    }
+
+    // Delete associated current prices first.
+    final prices = await _db
+        .collection('prices')
+        .where('shopId', isEqualTo: shopId)
+        .get();
+
+    final priceIds = prices.docs.map((doc) => doc.id).toList();
+
+    for (var i = 0; i < priceIds.length; i += 450) {
+      final batch = _db.batch();
+      final end =
+      (i + 450 < priceIds.length) ? i + 450 : priceIds.length;
+
+      for (var j = i; j < end; j++) {
+        batch.delete(_db.collection('prices').doc(priceIds[j]));
+      }
+
+      await batch.commit();
+    }
+
+    await _db.collection('shops').doc(shopId).delete();
   }
 
-  // 21. GET UNVERIFIED SHOPS FOR ADMIN
+  // ============================================================
+  // 24. GET UNVERIFIED SHOPS FOR ADMIN
+  // ============================================================
 
   Stream<List<Shop>> getUnverifiedShopsForAdmin(
       String universityName,
@@ -427,11 +539,11 @@ class FirestoreService {
     );
   }
 
-  // 22. GET ALL SHOPS FOR ADMIN
+  // ============================================================
+  // 25. GET ALL SHOPS FOR ADMIN
+  // ============================================================
 
-  Stream<List<Shop>> getAllShopsForAdmin(
-      String universityName,
-      ) {
+  Stream<List<Shop>> getAllShopsForAdmin(String universityName) {
     return _db
         .collection('shops')
         .where(
@@ -442,6 +554,58 @@ class FirestoreService {
         .map(
           (snapshot) => snapshot.docs
           .map((doc) => Shop.fromMap(doc.data(), doc.id))
+          .toList(),
+    );
+  }
+
+  // ============================================================
+  // 26. GET ALL USERS
+  // ============================================================
+
+  Stream<List<UserModel>> getAllUsers() {
+    return _db.collection('users').snapshots().map(
+          (snapshot) => snapshot.docs
+          .map((doc) => UserModel.fromMap(doc.data()))
+          .toList(),
+    );
+  }
+
+  // ============================================================
+  // 27. GET COMPLAINTS SUBMITTED BY A USER
+  // ============================================================
+
+  Stream<List<Complaint>> getUserComplaints(String userId) {
+    return _db
+        .collection('complaints')
+        .where(
+      'userId',
+      isEqualTo: userId,
+    )
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+          .map((doc) => Complaint.fromMap(doc.data(), doc.id))
+          .toList(),
+    );
+  }
+
+  // ============================================================
+  // 28. GET ALL COMPLAINTS BELONGING TO A UNIVERSITY
+  // ============================================================
+
+  Stream<List<Complaint>> getComplaintsByUniversity(
+      String universityName,
+      ) {
+    return _db
+        .collection('complaints')
+        .where(
+      'university',
+      isEqualTo: universityName.trim(),
+    )
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+          .map((doc) => Complaint.fromMap(doc.data(), doc.id))
           .toList(),
     );
   }

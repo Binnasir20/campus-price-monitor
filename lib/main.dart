@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -61,7 +62,7 @@ class MyApp extends StatelessWidget {
         '/manage_items': (context) => const ManageItemsScreen(),
         '/reported_prices': (context) => const ReportedScreen(),
         '/reported_items': (context) => const ReportedItemsScreen(),
-        // ADD MORE ROUTES HERE
+
       },
     );
   }

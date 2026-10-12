@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
 
+import '../manage_users_screen/manage_users_screen.dart';
+
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
 
@@ -8,8 +10,11 @@ class AdminDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Admin Control Panel"),
-        backgroundColor: Colors.blueGrey[900],
+        title: const Text("Admin Control Panel",style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 15
+        ),),
+         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -68,7 +73,12 @@ class AdminDashboard extends StatelessWidget {
             icon: IconlyLight.user,
             color: Colors.teal,
             onTap: () {
-              // Future: Navigator.pushNamed(context, '/manage_users');
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ManageUsersScreen(),
+                ),
+              );
             },
           ),
         ],

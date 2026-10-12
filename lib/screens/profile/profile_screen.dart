@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
@@ -9,14 +11,50 @@ import '../../providers/complaint_provider.dart';
 import '../admin/admin_dashboard.dart';
 import '../reported_screen/reported_item_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _changeProfilePicture() async {
+    final pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (pickedFile == null) return;
+
+    final authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+
+    final success = await authProvider.updateProfilePicture(
+      File(pickedFile.path),
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? "Profile picture updated."
+              : "Failed to update profile picture.",
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<AuthProvider>(context).userModel;
     final priceProv = Provider.of<PriceProvider>(context);
-    print("PROFILE REPORT COUNT: ${priceProv.myPriceReports.length}");
     final complaintProv = Provider.of<ComplaintProvider>(context);
 
     // --- STATISTICS LOGIC ---
@@ -25,16 +63,13 @@ class ProfileScreen extends StatelessWidget {
 
     if (user != null) {
       if (user.isAdmin) {
-        // ADMIN: Sees the total official prices
+        // Admin sees university-wide statistics.
         reportCount = priceProv.priceReports.length;
-        complaintCount = complaintProv.userComplaints.length;
+        complaintCount = complaintProv.universityComplaints.length;
       } else {
-        // STUDENT: Sees only their own submitted price reports
+        // Student sees their own contributions.
         reportCount = priceProv.myPriceReports.length;
-
-        complaintCount = complaintProv.userComplaints
-            .where((c) => c.userId == user.uid)
-            .length;
+        complaintCount = complaintProv.userComplaints.length;
       }
     }
 
@@ -42,11 +77,11 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text("My Profile",style: TextStyle(
-              fontSize: 15,
+              fontSize: 17,
               fontWeight:
                 FontWeight.bold,
             ),),
-        backgroundColor:  Color(AppColors.bgColor),
+          backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -120,32 +155,71 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // --- UI WIDGET HELPERS ---
-
   Widget _buildHeader(user) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 30),
       decoration: BoxDecoration(
-        color:  Color(AppColors.bgColor),
+        color:   AppColors.primary,
       ),
       child: Column(
         children: [
-           CircleAvatar(
-            radius: 45,
-            backgroundColor: Colors.white,
-            child: Icon(
-              IconlyLight.profile,
-              size: 50,
-              color: Color(AppColors.bgColor),
+          GestureDetector(
+            onTap: _changeProfilePicture,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: Colors.white,
+                  backgroundImage: user?.profileImageUrl != null &&
+                      user!.profileImageUrl!.isNotEmpty
+                      ? NetworkImage(user.profileImageUrl!)
+                      : null,
+                  child: user?.profileImageUrl == null ||
+                      user!.profileImageUrl!.isEmpty
+                      ? Icon(
+                    IconlyLight.profile,
+                    size: 50,
+                    color: AppColors.primary,
+                  )
+                      : null,
+                ),
+
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child:  Icon(
+                      IconlyLight.edit_square,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          //  CircleAvatar(
+          //   radius: 45,
+          //   backgroundColor: Colors.white,
+          //   child: Icon(
+          //     IconlyLight.profile,
+          //     size: 50,
+          //     color:  Colors.teal,
+          //   ),
+          // ),
 
           const SizedBox(height: 10),
 
           Text(
             user?.name ?? "User",
             style: const TextStyle(
-              fontSize: 20,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -155,6 +229,7 @@ class ProfileScreen extends StatelessWidget {
             user?.email ?? "",
             style: const TextStyle(
               color: Colors.white70,
+              fontSize: 12
             ),
           ),
         ],
@@ -209,10 +284,14 @@ class ProfileScreen extends StatelessWidget {
           "My Reports",
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            fontSize: 15
           ),
         ),
         subtitle: const Text(
           "View your submitted price reports",
+          style: TextStyle(
+            fontSize: 12
+          ),
         ),
         trailing: const Icon(
           Icons.arrow_forward_ios,
@@ -239,13 +318,14 @@ class ProfileScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         leading: const Icon(
-          Icons.dashboard_customize,
+          IconlyLight.setting,
           color: Colors.blueGrey,
         ),
         title: const Text(
           "Admin Dashboard",
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            fontSize: 15
           ),
         ),
         trailing: const Icon(
@@ -288,7 +368,7 @@ class ProfileScreen extends StatelessWidget {
               title,
               style: TextStyle(
                 color: color,
-                fontSize: 13,
+                fontSize: 11,
               ),
             ),
           ],
@@ -327,7 +407,7 @@ class ProfileScreen extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color:  Color(AppColors.bgColor),
+          color:  Colors.teal,
           size: 20,
         ),
 
@@ -377,7 +457,7 @@ Future<void> _confirmLogout(BuildContext context) async {
               Navigator.pop(context, true);
             },
             child: const Text("Log Out",style: TextStyle(
-              color: Colors.orange
+              color: Colors.teal
             ),),
           ),
         ],

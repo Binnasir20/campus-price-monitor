@@ -98,8 +98,10 @@ class _EditShopScreenState extends State<EditShopScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Edit Shop"),
-        backgroundColor: Colors.blueGrey[900],
+        title: const Text("Edit Shop",style: TextStyle(
+          fontSize: 17
+        ),),
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -110,7 +112,8 @@ class _EditShopScreenState extends State<EditShopScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Edit Shop Details",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  style: TextStyle(fontWeight: FontWeight.bold,
+                      fontSize: 15)),
               const SizedBox(height: 30),
 
               TextFormField(
@@ -181,7 +184,8 @@ class _EditShopScreenState extends State<EditShopScreen> {
                 onPressed: _isSaving ? null : _submitShop,
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("UPDATE SHOP", style: TextStyle(fontWeight: FontWeight.bold)),
+                    : const Text("UPDATE SHOP",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),

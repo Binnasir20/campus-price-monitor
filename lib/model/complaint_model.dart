@@ -5,9 +5,10 @@ class Complaint {
   final String userId;
   final String shopId;
   final String university;
-  final String reason; // e.g., 'Overpricing', 'Poor Quality'
+  final String reason;
   final String details;
   final DateTime timestamp;
+  final String status;
 
   Complaint({
     required this.id,
@@ -17,6 +18,7 @@ class Complaint {
     required this.reason,
     required this.details,
     required this.timestamp,
+    this.status = 'pending',
   });
 
   Map<String, dynamic> toMap() {
@@ -26,11 +28,17 @@ class Complaint {
       'university': university,
       'reason': reason,
       'details': details,
-      'timestamp': timestamp,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'status': status,
     };
   }
 
-  factory Complaint.fromMap(Map<String, dynamic> map, String docId) {
+  factory Complaint.fromMap(
+      Map<String, dynamic> map,
+      String docId,
+      ) {
+    final timestamp = map['timestamp'];
+
     return Complaint(
       id: docId,
       userId: map['userId'] ?? '',
@@ -38,7 +46,10 @@ class Complaint {
       university: map['university'] ?? '',
       reason: map['reason'] ?? '',
       details: map['details'] ?? '',
-      timestamp: (map['timestamp'] as Timestamp).toDate(),
+      timestamp: timestamp is Timestamp
+          ? timestamp.toDate()
+          : DateTime.now(),
+      status: map['status'] ?? 'pending',
     );
   }
 }

@@ -1,53 +1,103 @@
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../model/complaint_model.dart';
 import '../services/firestore_service.dart';
 
 class ComplaintProvider with ChangeNotifier {
-  // We create an instance of the service to talk to Firebase
-  final FirestoreService _firestoreService = FirestoreService();
+final FirestoreService _firestoreService = FirestoreService();
 
-  bool _isLoading = false;
-  String? _errorMessage;
+bool _isLoading = false;
+String? _errorMessage;
 
-  // Getters to show status in the UI (like a loading spinner)
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+bool get isLoading => _isLoading;
+String? get errorMessage => _errorMessage;
 
-  // FUNCTION: Submit a new complaint
-  Future<bool> sendComplaint(Complaint complaint) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners(); // Tells the UI to show a loading spinner
+// Complaints submitted by the current student.
+List<Complaint> _userComplaints = [];
+List<Complaint> get userComplaints => _userComplaints;
 
-    try {
-      await _firestoreService.submitComplaint(complaint);
-      _isLoading = false;
-      notifyListeners();
-      return true; // Success!
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString();
-      notifyListeners();
-      return false; // Error happened
-    }
-  }
+// All complaints belonging to the administrator's university.
+List<Complaint> _universityComplaints = [];
+List<Complaint> get universityComplaints => _universityComplaints;
 
-  // 2. Fetch complaints (if a student wants to see their past reports)
-  List<Complaint> _userComplaints = [];
-  List<Complaint> get userComplaints => _userComplaints;
+// Firestore stream subscriptions.
+StreamSubscription<List<Complaint>>? _userComplaintsSubscription;
+StreamSubscription<List<Complaint>>? _universityComplaintsSubscription;
 
-  Future<void> fetchUserComplaints(String userId) async {
-    _isLoading = true;
-    notifyListeners();
+// Submit a new complaint.
+Future<bool> sendComplaint(Complaint complaint) async {
+_isLoading = true;
+_errorMessage = null;
+notifyListeners();
 
-    try {
-      // In the future, we could add a getMyComplaints() in our Service
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = e.toString();
-      notifyListeners();
-    }
-  }
+try {
+await _firestoreService.submitComplaint(complaint);
+return true;
+} catch (e) {
+_errorMessage = e.toString();
+debugPrint('Error submitting complaint: $e');
+return false;
+} finally {
+_isLoading = false;
+notifyListeners();
+}
+}
+
+// Listen to complaints submitted by a specific student.
+void listenToUserComplaints(String userId) {
+_userComplaintsSubscription?.cancel();
+
+_isLoading = true;
+_errorMessage = null;
+notifyListeners();
+
+_userComplaintsSubscription =
+_firestoreService.getUserComplaints(userId).listen(
+(complaints) {
+_userComplaints = complaints;
+_isLoading = false;
+_errorMessage = null;
+notifyListeners();
+},
+onError: (Object error) {
+_isLoading = false;
+_errorMessage = error.toString();
+debugPrint('Error listening to user complaints: $error');
+notifyListeners();
+},
+);
+}
+
+// Listen to all complaints belonging to an administrator's university.
+void listenToUniversityComplaints(String university) {
+_universityComplaintsSubscription?.cancel();
+
+_isLoading = true;
+_errorMessage = null;
+notifyListeners();
+
+_universityComplaintsSubscription =
+_firestoreService.getComplaintsByUniversity(university).listen(
+(complaints) {
+_universityComplaints = complaints;
+_isLoading = false;
+_errorMessage = null;
+notifyListeners();
+},
+onError: (Object error) {
+_isLoading = false;
+_errorMessage = error.toString();
+debugPrint('Error listening to university complaints: $error');
+notifyListeners();
+},
+);
+}
+
+@override
+void dispose() {
+_userComplaintsSubscription?.cancel();
+_universityComplaintsSubscription?.cancel();
+super.dispose();
+}
 }

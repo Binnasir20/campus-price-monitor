@@ -77,6 +77,18 @@ class AuthService {
     }
   }
 
+  Future<void> updateUserProfileImage(String imageUrl) async {
+    final currentUser = _auth.currentUser;
+
+    if (currentUser == null) {
+      throw 'No user is currently logged in.';
+    }
+
+    await _db.collection('users').doc(currentUser.uid).update({
+      'profileImageUrl': imageUrl,
+    });
+  }
+
   // 4. RESET PASSWORD (The "Forgotten Password" addition)
   Future<void> sendPasswordReset(String email) async {
     try {

@@ -25,20 +25,45 @@ class Price {
       'shopId': shopId,
       'university': university,
       'price': price,
-      'updatedAt': updatedAt,
+      'updatedAt': Timestamp.fromDate(updatedAt),
       'reportedBy': reportedBy,
     };
   }
 
-  factory Price.fromMap(Map<String, dynamic> map, String docId) {
+  factory Price.fromMap(
+      Map<String, dynamic> map,
+      String docId,
+      ) {
+    final rawTimestamp = map['updatedAt'];
+
+    DateTime updatedAt;
+
+    if (rawTimestamp is Timestamp) {
+      updatedAt = rawTimestamp.toDate();
+    } else if (rawTimestamp is DateTime) {
+      updatedAt = rawTimestamp;
+    } else {
+      updatedAt = DateTime.now();
+    }
+
+    final rawPrice = map['price'];
+
+    double price;
+
+    if (rawPrice is num) {
+      price = rawPrice.toDouble();
+    } else {
+      price = double.tryParse(rawPrice?.toString() ?? '') ?? 0.0;
+    }
+
     return Price(
       id: docId,
-      itemId: map['itemId'] ?? '',
-      shopId: map['shopId'] ?? '',
-      university: map['university'] ?? '',
-      price: (map['price'] ?? 0.0).toDouble(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
-      reportedBy: map['reportedBy'] ?? '',
+      itemId: map['itemId']?.toString() ?? '',
+      shopId: map['shopId']?.toString() ?? '',
+      university: map['university']?.toString() ?? '',
+      price: price,
+      updatedAt: updatedAt,
+      reportedBy: map['reportedBy']?.toString() ?? '',
     );
   }
 }

@@ -1,152 +1,466 @@
+
+import 'package:campus_price_monitor/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+
 import '../../model/complaint_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/complaint_provider.dart';
 
 class ComplaintFormScreen extends StatefulWidget {
-  final String? initialShopId;
-  const ComplaintFormScreen({super.key, this.initialShopId});
+final String? initialShopId;
 
-  @override
-  State<ComplaintFormScreen> createState() => _ComplaintFormScreenState();
+const ComplaintFormScreen({
+super.key,
+this.initialShopId,
+});
+
+@override
+State<ComplaintFormScreen> createState() =>
+_ComplaintFormScreenState();
 }
 
 class _ComplaintFormScreenState extends State<ComplaintFormScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _detailsController = TextEditingController();
-  String? _selectedShopId;
-  String? _selectedReason;
+final _formKey = GlobalKey<FormState>();
+final _detailsController = TextEditingController();
 
-  final List<String> _reasons = [
-    "Overpricing",
-    "Poor Quality",
-    "Shop doesn't exist",
-    "Inaccurate Information",
-    "Other"
-  ];
+final stt.SpeechToText _speech = stt.SpeechToText();
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedShopId = widget.initialShopId;
-  }
+String? _selectedShopId;
+String? _selectedReason;
 
-  @override
-  void dispose() {
-    _detailsController.dispose();
-    super.dispose();
-  }
+bool _isListening = false;
+bool _isSpeechAvailable = false;
+bool _isInitializingSpeech = false;
+bool _isSubmitting = false;
 
-  void _submitComplaint() async {
-    // 1. Basic validation
-    if (!_formKey.currentState!.validate()) return;
+final List<String> _reasons = [
+'Overpricing',
+'Poor Quality',
+"Shop doesn't exist",
+'Inaccurate Information',
+'Other',
+];
 
-    final user = Provider.of<AuthProvider>(context, listen: false).userModel;
-    final complaintProv = Provider.of<ComplaintProvider>(context, listen: false);
+@override
+void initState() {
+super.initState();
+_selectedShopId = widget.initialShopId;
+}
 
-    if (user == null) return;
+@override
+void dispose() {
+_speech.stop();
+_detailsController.dispose();
+super.dispose();
+}
 
-    // 2. Create Complaint Object
-    final newComplaint = Complaint(
-      id: '',
-      userId: user.uid,
-      shopId: _selectedShopId!,
-      university: user.university,
-      reason: _selectedReason!,
-      details: _detailsController.text.trim(),
-      timestamp: DateTime.now(),
-    );
+Future<void> _startListening() async {
+if (_isListening || _isInitializingSpeech) return;
 
-    // 3. Submit
-    final success = await complaintProv.sendComplaint(newComplaint);
+setState(() {
+_isInitializingSpeech = true;
+});
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? "Reported successfully!" : "Failed to report."),
-          backgroundColor: success ? Colors.green : Colors.red,
-        ),
-      );
-      if (success) Navigator.pop(context);
-    }
-  }
+try {
+final available = await _speech.initialize(
+onStatus: (status) {
+if (!mounted) return;
 
-  @override
-  Widget build(BuildContext context) {
-    final shops = Provider.of<ShopProvider>(context).shops;
+if (status == 'done' || status == 'notListening') {
+setState(() {
+_isListening = false;
+});
+}
+},
+onError: (error) {
+if (!mounted) return;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Report an Issue"),
-        backgroundColor: Colors.redAccent,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              // --- SHOP DROPDOWN ---
-              DropdownButtonFormField<String>(
-                value: _selectedShopId,
-                decoration: _inputStyle("Select Shop", Icons.storefront),
-                items: shops.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))).toList(),
-                onChanged: (val) => setState(() => _selectedShopId = val),
-                validator: (val) => val == null ? "Select a shop" : null,
-              ),
-              const SizedBox(height: 20),
+setState(() {
+_isListening = false;
+});
 
-              // --- REASON DROPDOWN ---
-              DropdownButtonFormField<String>(
-                value: _selectedReason,
-                decoration: _inputStyle("Issue Type", Icons.report_problem_outlined),
-                items: _reasons.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-                onChanged: (val) => setState(() => _selectedReason = val),
-                validator: (val) => val == null ? "Select a reason" : null,
-              ),
-              const SizedBox(height: 20),
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('Could not recognize speech.'),
+backgroundColor: Colors.red,
+),
+);
+},
+);
 
-              // --- DETAILS FIELD ---
-              TextFormField(
-                controller: _detailsController,
-                maxLines: 4,
-                decoration: _inputStyle("Details", Icons.description_outlined),
-                validator: (val) => val!.isEmpty ? "Please explain the issue" : null,
-              ),
-              const SizedBox(height: 40),
+if (!mounted) return;
 
-              // --- SUBMIT BUTTON ---
-              Consumer<ComplaintProvider>(
-                builder: (context, provider, _) {
-                  return ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(60),
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: provider.isLoading ? null : _submitComplaint,
-                    child: provider.isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text("SUBMIT REPORT", style: TextStyle(fontWeight: FontWeight.bold)),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+_isSpeechAvailable = available;
 
-  InputDecoration _inputStyle(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    );
-  }
+if (!available) {
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text(
+'Speech recognition is not available.',
+),
+backgroundColor: Colors.red,
+),
+);
+return;
+}
+
+setState(() {
+_isListening = true;
+});
+
+await _speech.listen(
+onResult: (result) {
+if (!mounted) return;
+
+setState(() {
+_detailsController.value = TextEditingValue(
+text: result.recognizedWords,
+selection: TextSelection.collapsed(
+offset: result.recognizedWords.length,
+),
+);
+});
+},
+);
+} catch (e) {
+if (!mounted) return;
+
+setState(() {
+_isListening = false;
+});
+
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('Unable to start the microphone.'),
+backgroundColor: Colors.red,
+),
+);
+} finally {
+if (mounted) {
+setState(() {
+_isInitializingSpeech = false;
+});
+}
+}
+}
+
+Future<void> _stopListening() async {
+if (!_isListening) return;
+
+await _speech.stop();
+
+if (!mounted) return;
+
+setState(() {
+_isListening = false;
+});
+}
+
+Future<void> _submitComplaint() async {
+if (_isSubmitting) return;
+
+if (_isListening) {
+await _stopListening();
+}
+
+if (!_formKey.currentState!.validate()) return;
+
+final user = Provider.of<AuthProvider>(
+context,
+listen: false,
+).userModel;
+
+final complaintProvider = Provider.of<ComplaintProvider>(
+context,
+listen: false,
+);
+
+if (user == null) return;
+
+setState(() {
+_isSubmitting = true;
+});
+
+try {
+final newComplaint = Complaint(
+id: '',
+userId: user.uid,
+shopId: _selectedShopId!,
+university: user.university,
+reason: _selectedReason!,
+details: _detailsController.text.trim(),
+timestamp: DateTime.now(),
+);
+
+final success =
+await complaintProvider.sendComplaint(newComplaint);
+
+if (!mounted) return;
+
+ScaffoldMessenger.of(context).showSnackBar(
+SnackBar(
+content: Text(
+success
+? 'Reported successfully!'
+    : 'Failed to report.',
+),
+backgroundColor: success ? Colors.green : Colors.red,
+),
+);
+
+if (success) {
+Navigator.pop(context);
+}
+} catch (e) {
+if (!mounted) return;
+
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('An error occurred while submitting.'),
+backgroundColor: Colors.red,
+),
+);
+} finally {
+if (mounted) {
+setState(() {
+_isSubmitting = false;
+});
+}
+}
+}
+
+@override
+Widget build(BuildContext context) {
+final shops = Provider.of<ShopProvider>(context).shops;
+
+return Scaffold(
+  backgroundColor: AppColors.background,
+appBar: AppBar(
+  leading: IconButton(onPressed: (){
+    Navigator.pop(context);
+  },
+      icon: Icon(IconlyLight.arrow_left,
+     color: AppColors.textPrimary,)),
+  backgroundColor: AppColors.background,
+title: const Text('Report an Issue',style: TextStyle(
+  color: AppColors.textPrimary
+),),
+
+foregroundColor: Colors.white,
+),
+body: SingleChildScrollView(
+padding: const EdgeInsets.all(24),
+child: Form(
+key: _formKey,
+child: Column(
+children: [
+// Shop dropdown.
+DropdownButtonFormField<String>(
+value: _selectedShopId,
+decoration: _inputStyle(
+'Select Shop', IconlyLight.buy,
+),
+items: shops
+    .map(
+(shop) => DropdownMenuItem<String>(
+value: shop.id,
+child: Text(shop.name),
+),
+)
+    .toList(),
+onChanged: (value) {
+setState(() {
+_selectedShopId = value;
+});
+},
+validator: (value) =>
+value == null ? 'Select a shop' : null,
+),
+
+const SizedBox(height: 20),
+
+// Issue type dropdown.
+DropdownButtonFormField<String>(
+value: _selectedReason,
+decoration: _inputStyle(
+'Issue Type',
+IconlyLight.danger,
+),
+items: _reasons
+    .map(
+(reason) => DropdownMenuItem<String>(
+value: reason,
+child: Text(reason),
+),
+)
+    .toList(),
+onChanged: (value) {
+setState(() {
+_selectedReason = value;
+});
+},
+validator: (value) =>
+value == null ? 'Select a reason' : null,
+),
+
+const SizedBox(height: 20),
+
+// Complaint details.
+TextFormField(
+controller: _detailsController,
+maxLines: 4,
+decoration: _inputStyle(
+'Details',
+IconlyLight.chat,
+).copyWith(
+suffixIcon: IconButton(
+onPressed: _isListening
+? _stopListening
+    : _startListening,
+tooltip: _isListening
+? 'Stop recording'
+    : 'Start recording',
+icon: Icon(
+_isListening ? Icons.stop_circle : IconlyLight.voice,
+color: _isListening ? Colors.red : null,
+),
+),
+),
+validator: (value) =>
+value == null || value.trim().isEmpty
+? 'Please explain the issue'
+    : null,
+),
+
+const SizedBox(height: 12),
+
+// Dedicated microphone controls.
+Row(
+children: [
+Expanded(
+child: GestureDetector(
+onLongPressStart: (_) {
+_startListening();
+},
+onLongPressEnd: (_) {
+_stopListening();
+},
+child: ElevatedButton.icon(
+onPressed: _isListening ||
+_isInitializingSpeech
+? null
+    : _startListening,
+icon: const Icon(IconlyLight.voice),
+label: const Text('Hold to Speak'),
+style: ElevatedButton.styleFrom(
+backgroundColor: AppColors.primary,
+foregroundColor: Colors.white,
+padding: const EdgeInsets.symmetric(
+vertical: 14,
+),
+),
+),
+),
+),
+const SizedBox(width: 10),
+Expanded(
+child: ElevatedButton.icon(
+onPressed: _isListening
+? _stopListening
+    : null,
+icon: const Icon(Icons.stop),
+label: const Text('Stop'),
+style: ElevatedButton.styleFrom(
+backgroundColor: Colors.grey.shade700,
+foregroundColor: Colors.white,
+padding: const EdgeInsets.symmetric(
+vertical: 14,
+),
+),
+),
+),
+],
+),
+
+const SizedBox(height: 8),
+
+Text(
+_isListening
+? 'Listening... Speak clearly.'
+    : _isInitializingSpeech
+? 'Starting microphone...'
+    : 'Tap the microphone to speak, or hold '
+'the button while speaking.',
+textAlign: TextAlign.center,
+style: TextStyle(
+color: _isListening
+? Colors.red
+    : Colors.grey.shade700,
+fontSize: 12,
+),
+),
+
+const SizedBox(height: 40),
+
+// Submit complaint.
+Consumer<ComplaintProvider>(
+builder: (context, provider, _) {
+return ElevatedButton(
+style: ElevatedButton.styleFrom(
+minimumSize: const Size.fromHeight(60),
+backgroundColor: AppColors.primary,
+foregroundColor: Colors.white,
+shape: RoundedRectangleBorder(
+borderRadius: BorderRadius.circular(12),
+),
+),
+onPressed: provider.isLoading || _isSubmitting
+? null
+    : _submitComplaint,
+child: provider.isLoading || _isSubmitting
+? const CircularProgressIndicator(
+color: Colors.white,
+)
+    : const Text(
+'SUBMIT REPORT',
+style: TextStyle(
+fontWeight: FontWeight.bold,
+),
+),
+);
+},
+),
+],
+),
+),
+),
+);
+}
+
+InputDecoration _inputStyle(
+String label,
+IconData icon,
+) {
+return InputDecoration(
+labelText: label,
+prefixIcon: Icon(icon,size: 20,),
+border: OutlineInputBorder(
+borderRadius: BorderRadius.circular(12),
+  borderSide: BorderSide(
+      color: AppColors.primary
+  )
+),
+  focusColor: AppColors.primary,
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(
+      color: AppColors.primary
+    )
+  )
+);
+}
 }

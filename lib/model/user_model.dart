@@ -5,6 +5,7 @@ class UserModel {
   final String university; // Their University (e.g., UDUS)
   final String campus;     // Their specific campus
   final bool isAdmin;      // Permission level (Admin or Student)
+  final String? profileImageUrl;
 
   UserModel({
     required this.uid,
@@ -13,6 +14,7 @@ class UserModel {
     required this.university,
     required this.campus,
     this.isAdmin = false,  // New users are students by default
+    this.profileImageUrl
   });
 
   /// 1. PACKAGING: Convert the User Object into a Map to save in Firestore
@@ -24,6 +26,7 @@ class UserModel {
       'university': university,
       'campus': campus,
       'isAdmin': isAdmin,
+      'profileImageUrl': profileImageUrl,
     };
   }
 
@@ -37,6 +40,7 @@ class UserModel {
       campus: map['campus'] ?? '',
       // If 'isAdmin' is missing in the database, default to false
       isAdmin: map['isAdmin'] ?? false,
+        profileImageUrl: map['profileImageUrl']
     );
   }
 }

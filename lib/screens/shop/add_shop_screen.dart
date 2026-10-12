@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
@@ -99,8 +100,10 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Add Official Shop"),
-        backgroundColor: Colors.blueGrey[900],
+        title: const Text("Add Official Shop",style: TextStyle(
+          fontSize:17
+        ),),
+        backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -111,9 +114,9 @@ class _AddShopScreenState extends State<AddShopScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text("Register New Campus Shop",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const Text("Visible to all students immediately.",
-                  style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  style: TextStyle(color: Colors.grey, fontSize: 11)),
               const SizedBox(height: 30),
 
               TextFormField(
@@ -132,12 +135,13 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
               DropdownButtonFormField<String>(
                 value: _selectedCampus,
-                decoration: _inputDecoration("Select Campus", Icons.location_on),
+                decoration: _inputDecoration("Select Campus", IconlyBold.location),
                 items: ["Main Campus", "City Campus", "Annex", "Other"]
                     .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
                 onChanged: (val) => setState(() => _selectedCampus = val),
                 validator: (val) => val == null ? "Select campus" : null,
+
               ),
 
               const SizedBox(height: 20),
@@ -154,13 +158,14 @@ class _AddShopScreenState extends State<AddShopScreen> {
                   style: TextStyle(
                     color: _pickedLocation == null ? Colors.blueGrey : Colors.green,
                     fontWeight: FontWeight.bold,
+                    fontSize: 12
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(60),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   side: BorderSide(
-                    color: _pickedLocation == null ? Colors.blueGrey : Colors.green,
+                    color: _pickedLocation == null ?Colors.teal : Colors.green,
                   ),
                 ),
               ),
@@ -179,14 +184,15 @@ class _AddShopScreenState extends State<AddShopScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(60),
-                  backgroundColor: Colors.blueGrey[900],
+                  backgroundColor: Colors.teal,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: _isSaving ? null : _submitShop,
                 child: _isSaving
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("SAVE OFFICIAL SHOP", style: TextStyle(fontWeight: FontWeight.bold)),
+                    : const Text("SAVE OFFICIAL SHOP",
+                    style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15)),
               ),
             ],
           ),

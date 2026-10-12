@@ -14,53 +14,91 @@ class AdminComplaintScreen extends StatefulWidget {
       _AdminComplaintScreenState();
 }
 
-class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
+class _AdminComplaintScreenState extends State<AdminComplaintScreen>
+    with SingleTickerProviderStateMixin {
   final FirestoreService _firestore = FirestoreService();
+
+  late final TabController _tabController;
 
   Map<String, String> _userNames = {};
   Map<String, String> _shopNames = {};
 
   bool _isLoadingNames = true;
+  String? _namesError;
+
+  final Set<String> _resolvingComplaintIds = {};
 
   @override
   void initState() {
     super.initState();
+
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+
     _loadNames();
+  }
+
+  void _onTabChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNames() async {
     try {
       final users = await _firestore.getUserNames();
 
-      final shopsSnapshot = await _firestore
-          .getAllShopsForAdmin(
-        Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).userModel!.university.trim(),
-      )
+      if (!mounted) return;
+
+      final auth = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      );
+
+      final user = auth.userModel;
+
+      if (user == null) {
+        setState(() {
+          _isLoadingNames = false;
+          _namesError = 'Unable to identify the administrator.';
+        });
+        return;
+      }
+
+      final shops = await _firestore
+          .getAllShopsForAdmin(user.university.trim())
           .first;
 
-      final shops = <String, String>{};
+      final shopNames = <String, String>{};
 
-      for (final shop in shopsSnapshot) {
-        shops[shop.id] = shop.name;
+      for (final shop in shops) {
+        shopNames[shop.id] = shop.name;
       }
 
       if (!mounted) return;
 
       setState(() {
         _userNames = users;
-        _shopNames = shops;
+        _shopNames = shopNames;
         _isLoadingNames = false;
+        _namesError = null;
       });
-    } catch (e) {
-      print("Error loading complaint names: $e");
+    } catch (e, stackTrace) {
+      debugPrint('Error loading complaint names: $e');
+      debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
       setState(() {
         _isLoadingNames = false;
+        _namesError = 'Could not load student and shop names.';
       });
     }
   }
@@ -80,16 +118,27 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Student Complaints"),
+        title: const Text('Student Complaints'),
         backgroundColor: Colors.redAccent,
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Pending'),
+            Tab(text: 'Resolved'),
+          ],
+        ),
       ),
       body: StreamBuilder<List<Complaint>>(
         stream: _firestore.getAllComplaintsByUniversity(
           user.university.trim(),
         ),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(
               child: CircularProgressIndicator(),
             );
@@ -97,44 +146,105 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
 
           if (snapshot.hasError) {
             return Center(
-              child: Text(
-                "Error: ${snapshot.error}",
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'Could not load complaints.\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
               ),
             );
           }
 
           final complaints = snapshot.data ?? [];
 
-          if (complaints.isEmpty) {
-            return _buildEmptyState();
-          }
+          final pendingComplaints = complaints
+              .where((complaint) => complaint.status != 'resolved')
+              .toList();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: complaints.length,
-            itemBuilder: (context, index) {
-              final complaint = complaints[index];
+          final resolvedComplaints = complaints
+              .where((complaint) => complaint.status == 'resolved')
+              .toList();
 
-              return _buildComplaintCard(
-                context,
-                complaint,
-              );
-            },
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildComplaintList(
+                pendingComplaints,
+                isPending: true,
+              ),
+              _buildComplaintList(
+                resolvedComplaints,
+                isPending: false,
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildComplaintCard(
-      BuildContext context,
-      Complaint complaint,
-      ) {
+  Widget _buildComplaintList(
+      List<Complaint> complaints, {
+        required bool isPending,
+      }) {
+    if (_isLoadingNames) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_namesError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _namesError!,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isLoadingNames = true;
+                    _namesError = null;
+                  });
+                  _loadNames();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (complaints.isEmpty) {
+      return _buildEmptyState(isPending: isPending);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: complaints.length,
+      itemBuilder: (context, index) {
+        return _buildComplaintCard(complaints[index]);
+      },
+    );
+  }
+
+  Widget _buildComplaintCard(Complaint complaint) {
     final shopName =
         _shopNames[complaint.shopId] ?? 'Unknown Shop';
 
     final userName =
         _userNames[complaint.userId] ?? 'Unknown User';
+
+    final isResolved = complaint.status == 'resolved';
+    final isResolving =
+    _resolvingComplaintIds.contains(complaint.id);
 
     return Card(
       elevation: 2,
@@ -144,10 +254,13 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
       ),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: Colors.red.shade50,
-          child: const Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.red,
+          backgroundColor:
+          isResolved ? Colors.green.shade50 : Colors.red.shade50,
+          child: Icon(
+            isResolved
+                ? Icons.check_circle_outline
+                : Icons.warning_amber_rounded,
+            color: isResolved ? Colors.green : Colors.red,
           ),
         ),
         title: Text(
@@ -157,8 +270,8 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
           ),
         ),
         subtitle: Text(
-          DateFormat('MMM d, h:mm a')
-              .format(complaint.timestamp),
+          '${DateFormat('MMM d, h:mm a').format(complaint.timestamp)}'
+              ' • ${isResolved ? 'Resolved' : 'Pending'}',
           style: const TextStyle(fontSize: 12),
         ),
         children: [
@@ -168,58 +281,50 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Divider(),
-
-                _infoRow(
-                  Icons.store,
-                  "Shop",
-                  shopName,
-                ),
-
+                _infoRow(Icons.store, 'Shop', shopName),
                 const SizedBox(height: 8),
-
-                _infoRow(
-                  Icons.person,
-                  "Student",
-                  userName,
-                ),
-
+                _infoRow(Icons.person, 'Student', userName),
                 const SizedBox(height: 12),
-
                 const Text(
-                  "Detailed Complaint:",
+                  'Detailed Complaint:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 Text(
                   complaint.details,
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                  ),
+                  style: TextStyle(color: Colors.grey[800]),
                 ),
-
-                const SizedBox(height: 20),
-
-                ElevatedButton.icon(
-                  onPressed: () => _showDeleteDialog(
-                    context,
-                    complaint.id,
-                  ),
-                  icon: const Icon(Icons.check),
-                  label: const Text("MARK AS RESOLVED"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(
-                      double.infinity,
-                      45,
+                if (!isResolved) ...[
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    onPressed: isResolving
+                        ? null
+                        : () => _showResolveDialog(complaint.id),
+                    icon: isResolving
+                        ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(
+                      isResolving
+                          ? 'RESOLVING...'
+                          : 'MARK AS RESOLVED',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 45),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -228,20 +333,24 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({required bool isPending}) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.done_all_rounded,
+            isPending
+                ? Icons.done_all_rounded
+                : Icons.history_rounded,
             size: 80,
             color: Colors.green.withOpacity(0.3),
           ),
           const SizedBox(height: 10),
-          const Text(
-            "No pending complaints!",
-            style: TextStyle(
+          Text(
+            isPending
+                ? 'No pending complaints!'
+                : 'No resolved complaints yet.',
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.grey,
             ),
@@ -265,7 +374,7 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
         ),
         const SizedBox(width: 8),
         Text(
-          "$label: ",
+          '$label: ',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 12,
@@ -274,9 +383,7 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 12,
-            ),
+            style: const TextStyle(fontSize: 12),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -284,37 +391,68 @@ class _AdminComplaintScreenState extends State<AdminComplaintScreen> {
     );
   }
 
-  void _showDeleteDialog(
-      BuildContext context,
-      String docId,
-      ) {
-    showDialog(
+  Future<void> _showResolveDialog(String complaintId) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Resolve?"),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Resolve Complaint?'),
         content: const Text(
-          "This will delete the complaint report permanently.",
+          'This will mark the complaint as resolved. '
+              'The complaint record will be preserved.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("CANCEL"),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
           ),
           TextButton(
-            onPressed: () async {
-              await _firestore.deleteComplaint(docId);
-
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text(
-              "DELETE",
-              style: TextStyle(color: Colors.red),
+              'RESOLVE',
+              style: TextStyle(color: Colors.green),
             ),
           ),
         ],
       ),
     );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _resolvingComplaintIds.add(complaintId);
+    });
+
+    try {
+      await _firestore.resolveComplaint(complaintId);
+
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Complaint marked as resolved.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Error resolving complaint: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not resolve complaint: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _resolvingComplaintIds.remove(complaintId);
+        });
+      }
+    }
   }
 }

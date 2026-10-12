@@ -20,51 +20,73 @@ class _ShopListScreenState extends State<ShopListScreen> {
   Position? _currentPosition;
 
 
+
   @override
   void initState() {
     super.initState();
-    _initData();
-  }
 
-  void _initData() async {
-    // 1. Tell the app to fetch shops
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = Provider.of<AuthProvider>(context, listen: false).userModel;
-      if (user != null) {
-        Provider.of<ShopProvider>(context, listen: false)
-            .fetchShopsByUniversity(user.university, user.uid);
-      }
+      _initData();
     });
-
-    // 2. Get current location for distance calculation
-    try {
-      Position? position = await LocationService.getCurrentLocation();
-      setState(() {
-        _currentPosition = position;
-      });
-    } catch (e) {
-      debugPrint("Location permission denied or disabled: $e");
-    }
   }
+
+  Future<void> _initData() async {
+    if (!mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final user = authProvider.userModel;
+
+
+    if (user != null) {
+      await context.read<ShopProvider>().fetchShopsByUniversity(
+        user.university,
+        user.uid,
+        isAdmin: user.isAdmin,
+      );
+    }
+
+
+  }
+
+
+
+
+  // void _initData() async {
+  //   // 1. Tell the app to fetch shops
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     final user = Provider.of<AuthProvider>(context, listen: false).userModel;
+  //     if (user != null) {
+  //       Provider.of<ShopProvider>(context, listen: false)
+  //           .fetchShopsByUniversity(user.university, user.uid);
+  //     }
+  //   });
+  //
+  //   // 2. Get current location for distance calculation
+  //   try {
+  //     Position? position = await LocationService.getCurrentLocation();
+  //     setState(() {
+  //       _currentPosition = position;
+  //     });
+  //   } catch (e) {
+  //     debugPrint("Location permission denied or disabled: $e");
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
     final shopProv = Provider.of<ShopProvider>(context);
     final user = Provider.of<AuthProvider>(context).userModel;
 
-
-
-
-
-
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text("${user?.university } Shops",style: TextStyle(
+        title: Text("${user?.university } Shops",
+          style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.bold
         ),),
-        backgroundColor: Color(AppColors.bgColor),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: shopProv.isLoading
@@ -90,21 +112,48 @@ class _ShopListScreenState extends State<ShopListScreen> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               leading: CircleAvatar(
                 // Orange for pending, Green for verified
-                backgroundColor: isPending ? Colors.orange.shade100 : Colors.white.withOpacity(0.1),
+                backgroundColor: isPending ? AppColors.primary : Colors.white.withOpacity(0.1),
                 child: Icon(
-                    isPending ? Icons.hourglass_top : Icons.store,
-                    color: isPending ? Colors.orange :  Color(AppColors.bgColor)
+                    isPending ? Icons.hourglass_top : IconlyLight.buy
+                    ,
+                    color: isPending ? AppColors.accent :  AppColors.primary
                 ),
               ),
               title: Text(
                 shop.name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Campus: ${shop.campus}"),
-                  Text(shop.location, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  Row(
+                    children: [
+                      Text("Campus:",style: TextStyle(
+
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold
+                      ),),
+                      SizedBox(width: 5,),
+                      Text( shop.campus,style:TextStyle(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic
+                      ),),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(IconlyLight.location,size: 15,),
+                      SizedBox(width: 5,),
+                      Text(shop.location,
+                          style: TextStyle(fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey)),
+                    ],
+                  ),
                   
                   // NEW: Display Distance
                   if (_currentPosition != null && shop.latitude != null && shop.longitude != null)
@@ -127,7 +176,7 @@ class _ShopListScreenState extends State<ShopListScreen> {
                       padding: EdgeInsets.only(top: 4.0),
                       child: Text(
                         "Waiting for approval...",
-                        style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),
                 ],
@@ -137,10 +186,12 @@ class _ShopListScreenState extends State<ShopListScreen> {
                 children: [
                   if (shop.latitude != null)
                     IconButton(
-                      icon: const Icon(Icons.directions, color: Colors.blue),
+                      icon: const Icon(Icons.directions,
+                          color: Colors.blue),
                       onPressed: () => LocationService.navigateTo(shop.latitude!, shop.longitude!),
                     ),
-                  const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios,
+                      size: 16, color: Colors.grey),
                 ],
               ),
               onTap: () {
@@ -162,9 +213,10 @@ class _ShopListScreenState extends State<ShopListScreen> {
             MaterialPageRoute(builder: (context) => const AddShopScreen()),
           );
         },
-        backgroundColor: Color(AppColors.bgColor),
+        backgroundColor: AppColors.primary,
         icon: Icon(IconlyLight.edit_square, color: Colors.white),
-        label: const Text("Add Shop", style: TextStyle(color: Colors.white)),
+        label: const Text("Add Shop",
+            style: TextStyle(color: Colors.white)),
       ),
     );
   }

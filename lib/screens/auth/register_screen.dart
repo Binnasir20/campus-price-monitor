@@ -1,7 +1,7 @@
+import 'package:campus_price_monitor/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
-import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -45,7 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   OutlineInputBorder _inputBorder() {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide(color: Color(AppColors.bgColor)),
+      borderSide: BorderSide(color: Colors.teal),
     );
   }
   @override
@@ -53,12 +53,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-          backgroundColor: Colors.white,
-          title: const Text("Create Account",style: TextStyle(
-        fontSize: 25,
-        fontWeight: FontWeight.w500,
+          backgroundColor: AppColors.background,
+          title: const Text("Create Account",
+            style: TextStyle(
+            fontSize: 25,
+            fontWeight: FontWeight.w500,
       ),)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -66,7 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             // --- NAME FIELD ---
             TextField(
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: AppColors.primary,
               cursorHeight: 20,
               controller: _nameController,
               keyboardType: TextInputType.emailAddress,
@@ -86,7 +87,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             // --- EMAIL FIELD ---
             TextField(
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: Colors.teal,
               cursorHeight: 20,
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -105,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 10),
             // --- UPDATED PASSWORD FIELD ---
             TextField(
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: Colors.teal,
               cursorHeight: 20,
               controller: _passwordController,
               obscureText: !_isPasswordVisible,
@@ -141,7 +142,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // --- UNIVERSITY DROPDOWN ---
             DropdownButtonFormField<String>(
               value: _selectedUniversity,
-              hint: const Text("Select University",style: TextStyle(
+              hint:  Text("Select University",style: TextStyle(
                 color: Colors.grey,
                 fontSize: 12
               ),),
@@ -174,7 +175,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             DropdownButtonFormField<String?>(
               value: _selectedCampus,
-              hint: const Text("Select Campus",style: TextStyle(
+              hint: const Text("Select Campus",
+                style: TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),),
@@ -206,7 +208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 30),
 
             authProvider.isLoading
-                ? const CircularProgressIndicator(color: Colors.orange,)
+                ? const CircularProgressIndicator(color: Colors.teal,)
                 : SizedBox(
                 width: double.infinity,
                 height: 54,
@@ -214,7 +216,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onTap: () async{
                     if (_nameController.text.trim().isEmpty ||
                         _emailController.text.trim().isEmpty ||
-                        _passwordController.text.trim().isEmpty ||
+                        _passwordController.text.isEmpty ||
                         _selectedUniversity == null ||
                         _selectedCampus == null) {
                       _showSnackBar("Please fill in all fields", Colors.orange);
@@ -223,7 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     bool success = await authProvider.register(
                       email: _emailController.text.trim(),
-                      password: _passwordController.text.trim(),
+                      password: _passwordController.text,
                       name: _nameController.text.trim(),
                       university: _selectedUniversity!,
                       campus: _selectedCampus!,
@@ -233,18 +235,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       _showSnackBar("Registration Successful!", Colors.green);
                       Navigator.pop(context);
                     } else if (!success && mounted) {
-                      _showSnackBar("Registration Failed. Try again.", Colors.red);
+                      _showSnackBar(authProvider.errorMessage, Colors.red);
                     }
                   },
                   child: Container(
                       height: 54,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Color(AppColors.bgColor),
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Center(
-                        child: Text("Register",style: TextStyle(
+                        child: Text("Register",
+                          style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -275,7 +278,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextSpan(
                       text: "Login",
                       style: TextStyle(
-                        color: Color(AppColors.bgColor),
+                        color: AppColors.primary,
                         fontWeight: FontWeight.w400,
                         fontSize: 14,
                       ),

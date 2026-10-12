@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:iconly/iconly.dart';
-
-import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 import '../shop/shop_list_screen.dart';
+import '../../providers/complaint_provider.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -30,12 +29,25 @@ class _MainNavigationState extends State<MainNavigation> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = context.read<AuthProvider>().userModel;
+      if (!mounted) return;
+
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.userModel;
 
       if (user != null) {
         context.read<NotificationProvider>().fetchNotifications(
           user.uid,
         );
+
+        final complaintProvider = context.read<ComplaintProvider>();
+
+        if (user.isAdmin) {
+          complaintProvider.listenToUniversityComplaints(
+            user.university.trim(),
+          );
+        } else {
+          complaintProvider.listenToUserComplaints(user.uid);
+        }
       }
     });
   }
@@ -69,7 +81,7 @@ class _MainNavigationState extends State<MainNavigation> {
               child: const Text(
                 "Log Out",
                 style: TextStyle(
-                  color: Colors.orange,
+                  color: Colors.teal,
                 ),
               ),
             ),
@@ -113,7 +125,7 @@ class _MainNavigationState extends State<MainNavigation> {
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
-          selectedItemColor: Color(AppColors.bgColor),
+          selectedItemColor: Colors.teal,
           unselectedItemColor: Colors.grey,
           type: BottomNavigationBarType.fixed,
           items: const [

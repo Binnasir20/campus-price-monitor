@@ -22,7 +22,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   OutlineInputBorder _inputBorder() {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide(color: Color(AppColors.bgColor)),
+      borderSide: BorderSide(color: Colors.teal),
     );
   }
 
@@ -70,7 +70,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 40),
-             Icon(Icons.lock_reset, size: 100, color: Color(AppColors.bgColor)),
+             Icon(Icons.lock_reset, size: 100, color: Colors.teal),
             const SizedBox(height: 20),
             const Text(
               "Forgot Your Password?",
@@ -84,7 +84,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 30),
             TextField(
-              cursorColor: Color(AppColors.bgColor),
+              cursorColor: Colors.teal,
               cursorHeight: 20,
               controller: _emailController,
               decoration:  InputDecoration(
@@ -106,7 +106,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   height: 54,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Color(AppColors.bgColor),
+                    color: Colors.teal,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(

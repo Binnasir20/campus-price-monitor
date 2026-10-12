@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/price_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -42,7 +43,9 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
     final shopProvider = Provider.of<ShopProvider>(context);
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
         title: const Text(
           'My Reports',
           style: TextStyle(
@@ -89,7 +92,7 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
               } else if (report.status == 'rejected') {
                 statusColor = Colors.red;
               } else {
-                statusColor = Colors.orange;
+                statusColor = Colors.teal;
               }
 
               return Card(
@@ -101,12 +104,23 @@ class _ReportedItemsScreenState extends State<ReportedItemsScreen> {
                     CrossAxisAlignment.start,
                     children: [
                       // Item
-                      Text(
-                        report.itemId,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            "Item: ",
+                            style:  TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+
+                          ), Text(
+                            report.itemId,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 8),
