@@ -1,11 +1,11 @@
 
 import 'dart:async';
-
+import '../../model/shop_model.dart';
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
-
+import 'shop_map_screen.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -87,34 +87,30 @@ debugPrint('Could not get current location: $e');
 }
 }
 
-// Open navigation to a shop.
-Future<void> _navigateToShop(
-double? latitude,
-double? longitude,
-) async {
-if (latitude == null || longitude == null) {
-ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(
-content: Text('This shop has no saved coordinates.'),
-),
-);
-return;
-}
+// Open the map and navigate to the selected shop.
+  Future<void> _navigateToShop(
+      double? latitude,
+      double? longitude,
+      Shop shop,
+      ) async {
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This shop has no saved coordinates.'),
+        ),
+      );
+      return;
+    }
 
-try {
-await LocationService.navigateTo(latitude, longitude);
-} catch (e) {
-debugPrint('Navigation error: $e');
-
-if (!mounted) return;
-
-ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(
-content: Text('Could not open navigation.'),
-),
-);
-}
-}
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShopMapScreen(
+          initialShop: shop,
+        ),
+      ),
+    );
+  }
 
 @override
 void dispose() {
@@ -292,10 +288,11 @@ icon: const Icon(
 Icons.directions,
 color: Colors.blue,
 ),
-onPressed: () => _navigateToShop(
-shop.latitude,
-shop.longitude,
-),
+  onPressed: () => _navigateToShop(
+    shop.latitude,
+    shop.longitude,
+    shop,
+  ),
 ),
 const Icon(
 Icons.arrow_forward_ios,

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
-
+import 'shop_map_screen.dart';
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/item_provider.dart';
@@ -76,27 +76,30 @@ screenSize.height - _buttonHeight - kToolbarHeight - 40,
 });
 }
 
-// Open navigation to the shop.
-Future<void> _openDirections() async {
-final latitude = widget.shop.latitude;
-final longitude = widget.shop.longitude;
 
-if (latitude == null || longitude == null) return;
+// Open the map and navigate to this shop.
+  Future<void> _openDirections() async {
+    final latitude = widget.shop.latitude;
+    final longitude = widget.shop.longitude;
 
-try {
-await LocationService.navigateTo(latitude, longitude);
-} catch (e) {
-debugPrint('Navigation error: $e');
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This shop has no saved coordinates.'),
+        ),
+      );
+      return;
+    }
 
-if (!mounted) return;
-
-ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(
-content: Text('Could not open navigation.'),
-),
-);
-}
-}
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ShopMapScreen(
+          initialShop: widget.shop,
+        ),
+      ),
+    );
+  }
 
 @override
 Widget build(BuildContext context) {

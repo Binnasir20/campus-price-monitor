@@ -1,11 +1,11 @@
 
 import 'dart:io';
 
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 
 import '../model/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/local_profile_image_service.dart';
 
 class AuthProvider with ChangeNotifier {
 final AuthService _authService = AuthService();
@@ -14,7 +14,6 @@ UserModel? _userModel;
 bool _isLoading = true;
 String _errorMessage = '';
 
-// Getters
 UserModel? get userModel => _userModel;
 bool get isLoading => _isLoading;
 String get errorMessage => _errorMessage;
@@ -27,11 +26,35 @@ _checkCurrentUser();
 Future<void> _checkCurrentUser() async {
 try {
 _userModel = await _authService.getUserDetails();
+
+if (_userModel != null) {
+await _loadLocalProfilePicture();
+}
 } catch (e) {
+debugPrint('Could not load current user: $e');
 _userModel = null;
 } finally {
 _isLoading = false;
 notifyListeners();
+}
+}
+
+// Load the locally saved picture for the logged-in user.
+Future<void> _loadLocalProfilePicture() async {
+final user = _userModel;
+
+if (user == null) return;
+
+try {
+final imageFile =
+await LocalProfileImageService.getProfileImage(user.uid);
+
+_userModel = user.copyWith(
+localProfileImagePath: imageFile?.path,
+clearLocalProfileImagePath: imageFile == null,
+);
+} catch (e) {
+debugPrint('Could not load local profile picture: $e');
 }
 }
 
@@ -56,6 +79,10 @@ campus: campus,
 
 _userModel = await _authService.getUserDetails();
 
+if (_userModel != null) {
+await _loadLocalProfilePicture();
+}
+
 _setLoading(false);
 return true;
 } catch (e) {
@@ -72,6 +99,10 @@ try {
 await _authService.loginUser(email, password);
 
 _userModel = await _authService.getUserDetails();
+
+if (_userModel != null) {
+await _loadLocalProfilePicture();
+}
 
 _setLoading(false);
 return true;
@@ -112,41 +143,36 @@ _setError(e.toString());
 }
 }
 
-// Update the profile picture using Firebase Storage.
+// Save the profile picture locally instead of Firebase Storage.
 Future<bool> updateProfilePicture(File imageFile) async {
 if (_userModel == null) {
 _setError('No user is currently logged in.');
 return false;
 }
 
+final currentUser = _userModel!;
+
 _setLoading(true);
 
 try {
-final storageRef = FirebaseStorage.instance
-    .ref()
-    .child('profile_images')
-    .child('${_userModel!.uid}.jpg');
-
-await storageRef.putFile(imageFile);
-
-final imageUrl = await storageRef.getDownloadURL();
-
-_userModel = UserModel(
-uid: _userModel!.uid,
-name: _userModel!.name,
-email: _userModel!.email,
-university: _userModel!.university,
-campus: _userModel!.campus,
-isAdmin: _userModel!.isAdmin,
-profileImageUrl: imageUrl,
+final savedImagePath =
+await LocalProfileImageService.saveProfileImage(
+uid: currentUser.uid,
+imageFile: imageFile,
 );
 
-await _authService.updateUserProfileImage(imageUrl);
+_userModel = currentUser.copyWith(
+localProfileImagePath: savedImagePath,
+);
 
-_setLoading(false);
+_isLoading = false;
+_errorMessage = '';
+
+notifyListeners();
+
 return true;
 } catch (e) {
-_setError(e.toString());
+_setError('Could not save profile picture: $e');
 return false;
 }
 }
