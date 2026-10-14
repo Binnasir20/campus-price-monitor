@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -28,10 +29,10 @@ List<PriceAlert> get priceAlerts => _priceAlerts;
 bool get isLoading => _isLoading;
 String? get errorMessage => _errorMessage;
 
-// Prices more than this percentage above the comparison price are flagged.
+// Flag prices that are more than 25% above the comparison price.
 static const double alertThresholdPercentage = 25.0;
 
-// Save a simulated purchase and check whether its price looks unusual.
+// Save a demo purchase and check whether its price is unusual.
 Future<bool> makeDemoPurchase({
 required String studentId,
 required String studentName,
@@ -70,12 +71,11 @@ throw ArgumentError(
 }
 
 final now = DateTime.now();
-final purchaseRef =
-'${studentId}_${now.microsecondsSinceEpoch}';
+final purchaseId = '${studentId}_${now.microsecondsSinceEpoch}';
 final totalAmount = quantity * unitPrice;
 
 final purchase = Purchase(
-id: purchaseRef,
+id: purchaseId,
 studentId: studentId,
 studentName: studentName,
 university: university,
@@ -89,13 +89,13 @@ unit: unit,
 unitPrice: unitPrice,
 totalAmount: totalAmount,
 paymentStatus: 'successful',
-paymentReference: 'DEMO-$purchaseRef',
+paymentReference: 'DEMO-$purchaseId',
 paymentType: 'demo',
 purchasedAt: now,
 isDemo: true,
 );
 
-// Save the transaction before generating an alert.
+// Save the purchase before creating a related alert.
 await _firestoreService.savePurchase(purchase);
 
 await _checkPriceAndCreateAlert(
@@ -103,22 +103,21 @@ purchase: purchase,
 availablePrices: availablePrices,
 );
 
-_isLoading = false;
-notifyListeners();
 return true;
 } catch (e, stackTrace) {
-_isLoading = false;
 _errorMessage = 'Could not complete demo purchase: $e';
 
 debugPrint(_errorMessage);
 debugPrintStack(stackTrace: stackTrace);
 
-notifyListeners();
 return false;
+} finally {
+_isLoading = false;
+notifyListeners();
 }
 }
 
-// Compare the purchase price with prices for the same item at other shops.
+// Compare the purchase price with prices at other shops.
 Future<void> _checkPriceAndCreateAlert({
 required Purchase purchase,
 required List<Price> availablePrices,
@@ -131,31 +130,24 @@ price.price.isFinite &&
 price.price > 0;
 }).toList();
 
-if (comparablePrices.isEmpty) {
-return;
-}
+if (comparablePrices.isEmpty) return;
 
 final averagePrice = comparablePrices
     .map((price) => price.price)
     .reduce((a, b) => a + b) /
 comparablePrices.length;
 
-if (averagePrice <= 0) {
-return;
-}
+if (averagePrice <= 0) return;
 
 final differencePercentage =
 ((purchase.unitPrice - averagePrice) / averagePrice) * 100;
 
-if (differencePercentage <= alertThresholdPercentage) {
-return;
-}
-
-final alertId =
-'${purchase.id}_price_alert';
+// Only flag prices that are more than 25% above the average.
+if (differencePercentage <= alertThresholdPercentage) return;
 
 final alert = PriceAlert(
-id: alertId,
+id: '${purchase.id}_price_alert',
+studentId: purchase.studentId,
 university: purchase.university,
 itemId: purchase.itemId,
 itemName: purchase.itemName,
@@ -180,7 +172,7 @@ isDemo: true,
 await _firestoreService.savePriceAlert(alert);
 }
 
-// Listen for purchases made by the current student.
+// Listen for purchases made by a student.
 Future<void> fetchMyPurchases(String studentId) async {
 await _myPurchasesSubscription?.cancel();
 
@@ -198,7 +190,7 @@ notifyListeners();
 );
 }
 
-// Listen for purchases made at the current university.
+// Listen for purchases at a university.
 Future<void> fetchUniversityPurchases(String university) async {
 await _universityPurchasesSubscription?.cancel();
 
@@ -216,23 +208,35 @@ notifyListeners();
 );
 }
 
-// Listen for price alerts at the current university.
-Future<void> fetchPriceAlerts(String university) async {
-await _priceAlertsSubscription?.cancel();
+// Students load their own alerts; administrators load university alerts.
+  Future<void> fetchPriceAlerts({
+    required String university,
+    required String studentId,
+    required bool isAdmin,
+  }) async {
+    await _priceAlertsSubscription?.cancel();
 
-_priceAlertsSubscription =
-_firestoreService.getPriceAlertsByUniversity(university).listen(
-(alerts) {
-_priceAlerts = alerts;
-notifyListeners();
-},
-onError: (error) {
-_errorMessage = 'Could not load price alerts: $error';
-debugPrint(_errorMessage);
-notifyListeners();
-},
-);
-}
+    _priceAlerts = [];
+    _errorMessage = null;
+    notifyListeners();
+
+    final alertsStream = isAdmin
+        ? _firestoreService.getPriceAlertsByUniversity(university)
+        : _firestoreService.getPriceAlertsByStudent(studentId);
+
+    _priceAlertsSubscription = alertsStream.listen(
+          (alerts) {
+        _priceAlerts = alerts;
+        _errorMessage = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _errorMessage = 'Could not load price alerts: $error';
+        debugPrint(_errorMessage);
+        notifyListeners();
+      },
+    );
+  }
 
 // Save an administrator's decision about an alert.
 Future<bool> reviewPriceAlert({
@@ -258,7 +262,7 @@ return false;
 }
 }
 
-// Clear the data when the provider is no longer needed.
+// Cancel listeners and clear stored data.
 void clearData() {
 _myPurchasesSubscription?.cancel();
 _universityPurchasesSubscription?.cancel();
@@ -272,6 +276,7 @@ _myPurchases = [];
 _universityPurchases = [];
 _priceAlerts = [];
 _errorMessage = null;
+_isLoading = false;
 
 notifyListeners();
 }

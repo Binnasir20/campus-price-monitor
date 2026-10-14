@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:iconly/iconly.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
-import '../home/home_screen.dart';
-import '../profile/profile_screen.dart';
-import '../shop/shop_list_screen.dart';
 import '../../providers/complaint_provider.dart';
+
+import '../home/home_screen.dart';
+import '../shop/shop_list_screen.dart';
+import '../profile/profile_screen.dart';
+import '../purchase/purchase_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -21,6 +24,7 @@ class _MainNavigationState extends State<MainNavigation> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const ShopListScreen(),
+    const PurchaseScreen(),
     const ProfileScreen(),
   ];
 
@@ -35,9 +39,7 @@ class _MainNavigationState extends State<MainNavigation> {
       final user = authProvider.userModel;
 
       if (user != null) {
-        context.read<NotificationProvider>().fetchNotifications(
-          user.uid,
-        );
+        context.read<NotificationProvider>().fetchNotifications(user.uid);
 
         final complaintProvider = context.read<ComplaintProvider>();
 
@@ -63,26 +65,22 @@ class _MainNavigationState extends State<MainNavigation> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Log Out"),
-          content: const Text(
-            "Are you sure you want to log out?",
-          ),
+          title: const Text('Log Out'),
+          content: const Text('Are you sure you want to log out?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context, false);
               },
-              child: const Text("Cancel"),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(context, true);
               },
               child: const Text(
-                "Log Out",
-                style: TextStyle(
-                  color: Colors.teal,
-                ),
+                'Log Out',
+                style: TextStyle(color: Colors.teal),
               ),
             ),
           ],
@@ -91,17 +89,10 @@ class _MainNavigationState extends State<MainNavigation> {
     );
 
     if (shouldLogout == true) {
-      await Provider.of<AuthProvider>(
-        context,
-        listen: false,
-      ).logout();
+      await Provider.of<AuthProvider>(context, listen: false).logout();
 
       if (context.mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          '/login',
-              (route) => false,
-        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       }
     }
   }
@@ -111,17 +102,12 @@ class _MainNavigationState extends State<MainNavigation> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          return;
-        }
+        if (didPop) return;
 
         _showLogoutDialog();
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _selectedIndex,
-          children: _screens,
-        ),
+        body: IndexedStack(index: _selectedIndex, children: _screens),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
@@ -136,6 +122,11 @@ class _MainNavigationState extends State<MainNavigation> {
             BottomNavigationBarItem(
               icon: Icon(IconlyLight.work),
               label: 'Shops',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart_outlined),
+              activeIcon: Icon(Icons.shopping_cart),
+              label: 'Purchase',
             ),
             BottomNavigationBarItem(
               icon: Icon(IconlyLight.profile),

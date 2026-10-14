@@ -9,7 +9,7 @@ final String itemId;
 final String itemName;
 final String shopId;
 final String shopName;
-
+final String studentId;
 final String purchaseId;
 final String transactionReference;
 
@@ -31,6 +31,7 @@ final String? reviewNote;
 final bool isDemo;
 
 PriceAlert({
+  required this.studentId,
 required this.id,
 required this.university,
 required this.itemId,
@@ -83,6 +84,7 @@ Map<String, dynamic> map,
 String documentId,
 ) {
 return PriceAlert(
+  studentId: map['studentId']?.toString() ?? '',
 id: documentId,
 university: map['university']?.toString() ?? '',
 itemId: map['itemId']?.toString() ?? '',

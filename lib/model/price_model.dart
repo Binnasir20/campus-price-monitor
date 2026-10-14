@@ -8,6 +8,7 @@ class Price {
   final double price;
   final DateTime updatedAt;
   final String reportedBy;
+  final bool isAdminSet;
 
   Price({
     required this.id,
@@ -17,6 +18,7 @@ class Price {
     required this.price,
     required this.updatedAt,
     required this.reportedBy,
+    this.isAdminSet = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -27,13 +29,11 @@ class Price {
       'price': price,
       'updatedAt': Timestamp.fromDate(updatedAt),
       'reportedBy': reportedBy,
+      'isAdminSet': isAdminSet,
     };
   }
 
-  factory Price.fromMap(
-      Map<String, dynamic> map,
-      String docId,
-      ) {
+  factory Price.fromMap(Map<String, dynamic> map, String docId) {
     final rawTimestamp = map['updatedAt'];
 
     DateTime updatedAt;
@@ -64,6 +64,7 @@ class Price {
       price: price,
       updatedAt: updatedAt,
       reportedBy: map['reportedBy']?.toString() ?? '',
+      isAdminSet: map['isAdminSet'] == true,
     );
   }
 }

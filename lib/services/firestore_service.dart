@@ -1,3 +1,4 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../model/item_model.dart';
@@ -22,13 +23,13 @@ return _db.collection('items').snapshots().map(
 );
 }
 
-// Add a new item.
+// Add an item.
 Future<String> addItem(Item item) async {
-final docRef = await _db.collection('items').add(item.toMap());
-return docRef.id;
+final doc = await _db.collection('items').add(item.toMap());
+return doc.id;
 }
 
-// Update an existing item.
+// Update an item.
 Future<void> updateItem(Item item) async {
 if (item.id.trim().isEmpty) {
 throw ArgumentError('Item ID cannot be empty.');
@@ -38,35 +39,37 @@ await _db.collection('items').doc(item.id).update(item.toMap());
 }
 
 // Delete an item and its current prices.
-Future<void> deleteItem(
-String itemId, {
-String? itemName,
-}) async {
+Future<void> deleteItem(String itemId, {String? itemName}) async {
 if (itemId.trim().isEmpty) {
 throw ArgumentError('Item ID cannot be empty.');
 }
 
 final itemRef = _db.collection('items').doc(itemId);
-final itemSnapshot = await itemRef.get();
+final item = await itemRef.get();
 
-if (!itemSnapshot.exists) {
+if (!item.exists) {
 throw Exception('Item not found: $itemId');
 }
 
-final pricesSnapshot = await _db
+final prices = await _db
     .collection('prices')
     .where('itemId', isEqualTo: itemId)
     .get();
 
+// Firestore batches support at most 500 writes.
+for (var i = 0; i < prices.docs.length; i += 450) {
 final batch = _db.batch();
+final end =
+(i + 450 < prices.docs.length) ? i + 450 : prices.docs.length;
 
-for (final priceDoc in pricesSnapshot.docs) {
-batch.delete(priceDoc.reference);
+for (var j = i; j < end; j++) {
+batch.delete(prices.docs[j].reference);
 }
 
-batch.delete(itemRef);
-
 await batch.commit();
+}
+
+await itemRef.delete();
 }
 
 // Get current prices for a university.
@@ -88,7 +91,7 @@ Future<void> submitComplaint(Complaint complaint) async {
 await _db.collection('complaints').add(complaint.toMap());
 }
 
-// Add or update the current price of an item in a shop.
+// Add or update an item's current price in a shop.
 Future<void> updatePrice(Price price) async {
 if (price.itemId.trim().isEmpty ||
 price.shopId.trim().isEmpty ||
@@ -153,14 +156,14 @@ if (complaintId.trim().isEmpty) {
 throw ArgumentError('Complaint ID cannot be empty.');
 }
 
-final complaintRef = _db.collection('complaints').doc(complaintId);
-final complaintDoc = await complaintRef.get();
+final ref = _db.collection('complaints').doc(complaintId);
+final complaint = await ref.get();
 
-if (!complaintDoc.exists) {
+if (!complaint.exists) {
 throw Exception('Complaint not found.');
 }
 
-await complaintRef.update({'status': 'resolved'});
+await ref.update({'status': 'resolved'});
 }
 
 // Submit a price report.
@@ -199,14 +202,14 @@ if (!allowedStatuses.contains(status)) {
 throw ArgumentError('Invalid price report status: $status');
 }
 
-final reportRef = _db.collection('priceReports').doc(reportId);
-final reportDoc = await reportRef.get();
+final ref = _db.collection('priceReports').doc(reportId);
+final report = await ref.get();
 
-if (!reportDoc.exists) {
+if (!report.exists) {
 throw Exception('Price report not found.');
 }
 
-await reportRef.update({'status': status});
+await ref.update({'status': status});
 }
 
 // Mark a notification as read.
@@ -229,19 +232,17 @@ return _db
     .snapshots()
     .map(
 (snapshot) => snapshot.docs
-    .map(
-(doc) => AppNotification.fromMap(doc.data(), doc.id),
-)
+    .map((doc) => AppNotification.fromMap(doc.data(), doc.id))
     .toList(),
 );
 }
 
 // Get a user's name.
 Future<String> getUserName(String uid) async {
-final userDoc = await _db.collection('users').doc(uid).get();
+final user = await _db.collection('users').doc(uid).get();
 
-if (userDoc.exists) {
-return userDoc.data()?['name']?.toString() ?? 'Unknown user';
+if (user.exists) {
+return user.data()?['name']?.toString() ?? 'Unknown user';
 }
 
 final snapshot = await _db
@@ -261,17 +262,17 @@ return 'Unknown user';
 // Get the names of all users.
 Future<Map<String, String>> getUserNames() async {
 final snapshot = await _db.collection('users').get();
-final Map<String, String> userNames = {};
+final Map<String, String> names = {};
 
 for (final doc in snapshot.docs) {
 final data = doc.data();
 final uid = data['uid']?.toString() ?? doc.id;
 final name = data['name']?.toString() ?? 'Unknown user';
 
-userNames[uid] = name;
+names[uid] = name;
 }
 
-return userNames;
+return names;
 }
 
 // Get price reports submitted by a user.
@@ -290,13 +291,13 @@ return _db
 
 // Get a shop's name.
 Future<String> getShopName(String shopId) async {
-final doc = await _db.collection('shops').doc(shopId).get();
+final shop = await _db.collection('shops').doc(shopId).get();
 
-if (!doc.exists) {
+if (!shop.exists) {
 return 'Unknown Shop';
 }
 
-return doc.data()?['name']?.toString() ?? 'Unknown Shop';
+return shop.data()?['name']?.toString() ?? 'Unknown Shop';
 }
 
 // Verify a shop.
@@ -345,7 +346,7 @@ await batch.commit();
 await _db.collection('shops').doc(shopId).delete();
 }
 
-// Get shops that are waiting for verification.
+// Get shops waiting for verification.
 Stream<List<Shop>> getUnverifiedShopsForAdmin(
 String universityName,
 ) {
@@ -361,7 +362,7 @@ return _db
 );
 }
 
-// Get all shops belonging to a university.
+// Get all shops for a university.
 Stream<List<Shop>> getAllShopsForAdmin(String universityName) {
 return _db
     .collection('shops')
@@ -420,25 +421,25 @@ if (itemId.trim().isEmpty || shopId.trim().isEmpty) {
 throw ArgumentError('Item ID and Shop ID are required.');
 }
 
-final snapshot = await _db
+final prices = await _db
     .collection('prices')
     .where('itemId', isEqualTo: itemId)
     .where('shopId', isEqualTo: shopId)
     .get();
 
-if (snapshot.docs.isEmpty) {
+if (prices.docs.isEmpty) {
 throw Exception(
 'No current price found for this item in the selected shop.',
 );
 }
 
-for (var i = 0; i < snapshot.docs.length; i += 450) {
+for (var i = 0; i < prices.docs.length; i += 450) {
 final batch = _db.batch();
 final end =
-(i + 450 < snapshot.docs.length) ? i + 450 : snapshot.docs.length;
+(i + 450 < prices.docs.length) ? i + 450 : prices.docs.length;
 
 for (var j = i; j < end; j++) {
-batch.delete(snapshot.docs[j].reference);
+batch.delete(prices.docs[j].reference);
 }
 
 await batch.commit();
@@ -483,10 +484,9 @@ throw ArgumentError(
 );
 }
 
-await _db
-    .collection('purchases')
-    .doc(purchase.id)
-    .set(purchase.toMap());
+await _db.collection('purchases').doc(purchase.id).set(
+purchase.toMap(),
+);
 }
 
 // Get a student's purchase history.
@@ -503,7 +503,7 @@ return _db
 );
 }
 
-// Get purchase records for a university.
+// Get purchases for a university.
 Stream<List<Purchase>> getPurchasesByUniversity(
 String universityName,
 ) {
@@ -524,9 +524,11 @@ Future<void> savePriceAlert(PriceAlert alert) async {
 if (alert.id.trim().isEmpty ||
 alert.university.trim().isEmpty ||
 alert.itemId.trim().isEmpty ||
-alert.shopId.trim().isEmpty) {
+alert.shopId.trim().isEmpty ||
+alert.studentId.trim().isEmpty ||
+alert.purchaseId.trim().isEmpty) {
 throw ArgumentError(
-'Alert ID, university, item, and shop are required.',
+'Alert ID, student, purchase, university, item, and shop are required.',
 );
 }
 
@@ -543,13 +545,26 @@ if (alert.status != 'pending') {
 throw ArgumentError('New alerts must have pending status.');
 }
 
-await _db
-    .collection('priceAlerts')
-    .doc(alert.id)
-    .set(alert.toMap());
+await _db.collection('priceAlerts').doc(alert.id).set(
+alert.toMap(),
+);
 }
 
-// Get price alerts for a university.
+// Get only a student's own price alerts.
+Stream<List<PriceAlert>> getPriceAlertsByStudent(String studentId) {
+return _db
+    .collection('priceAlerts')
+    .where('studentId', isEqualTo: studentId)
+    .orderBy('createdAt', descending: true)
+    .snapshots()
+    .map(
+(snapshot) => snapshot.docs
+    .map((doc) => PriceAlert.fromMap(doc.data(), doc.id))
+    .toList(),
+);
+}
+
+// Get all price alerts for an administrator's university.
 Stream<List<PriceAlert>> getPriceAlertsByUniversity(
 String universityName,
 ) {
@@ -565,7 +580,7 @@ return _db
 );
 }
 
-// Save an administrator's decision on a price alert.
+// Update a price alert's status.
 Future<void> updatePriceAlertStatus({
 required String alertId,
 required String status,
@@ -587,20 +602,20 @@ if (!allowedStatuses.contains(status)) {
 throw ArgumentError('Invalid price alert status: $status');
 }
 
-final alertRef = _db.collection('priceAlerts').doc(alertId);
-final alertDoc = await alertRef.get();
+final ref = _db.collection('priceAlerts').doc(alertId);
+final alert = await ref.get();
 
-if (!alertDoc.exists) {
+if (!alert.exists) {
 throw Exception('Price alert not found.');
 }
 
-final currentStatus = alertDoc.data()?['status'];
+final currentStatus = alert.data()?['status'];
 
 if (currentStatus == 'dismissed' || currentStatus == 'resolved') {
 throw StateError('This alert has already been closed.');
 }
 
-await alertRef.update({
+await ref.update({
 'status': status,
 'reviewedBy': reviewedBy,
 'reviewedAt': FieldValue.serverTimestamp(),
