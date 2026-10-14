@@ -1,10 +1,12 @@
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../model/complaint_model.dart';
+import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/complaint_provider.dart';
-import '../../services/firestore_service.dart';
+import '../../providers/shop_provider.dart';
 
 class MyComplaintsScreen extends StatefulWidget {
 const MyComplaintsScreen({super.key});
@@ -42,8 +44,10 @@ return '${d.day.toString().padLeft(2, '0')}/'
 @override
 Widget build(BuildContext context) {
 final user = context.watch<AuthProvider>().userModel;
-final provider = context.watch<ComplaintProvider>();
-final complaints = provider.userComplaints;
+final complaintProvider = context.watch<ComplaintProvider>();
+final shopProvider = context.watch<ShopProvider>();
+
+final complaints = complaintProvider.userComplaints;
 
 return Scaffold(
 appBar: AppBar(
@@ -56,21 +60,33 @@ tooltip: 'Refresh',
 icon: const Icon(Icons.refresh),
 onPressed: user == null
 ? null
-    : () => provider.listenToUserComplaints(user.uid),
+    : () {
+complaintProvider.listenToUserComplaints(user.uid);
+},
 ),
 ],
 ),
 body: user == null
-? const Center(child: Text('Please sign in to continue.'))
-    : provider.isLoading && complaints.isEmpty
-? const Center(child: CircularProgressIndicator())
-    : provider.errorMessage != null && complaints.isEmpty
-? _buildError(provider.errorMessage!, user.uid)
+? const Center(
+child: Text('Please sign in to continue.'),
+)
+    : complaintProvider.isLoading && complaints.isEmpty
+? const Center(
+child: CircularProgressIndicator(),
+)
+    : complaintProvider.errorMessage != null &&
+complaints.isEmpty
+? _buildError(
+complaintProvider.errorMessage!,
+user.uid,
+)
     : complaints.isEmpty
 ? _buildEmptyState()
     : RefreshIndicator(
 onRefresh: () async {
-provider.listenToUserComplaints(user.uid);
+complaintProvider.listenToUserComplaints(
+user.uid,
+);
 },
 child: ListView.builder(
 physics: const AlwaysScrollableScrollPhysics(),
@@ -80,9 +96,12 @@ itemBuilder: (context, index) {
 final complaint = complaints[index];
 
 return _ComplaintCard(
+key: ValueKey(complaint.id),
 complaint: complaint,
 formattedDate:
 _formatDate(complaint.timestamp),
+shops: shopProvider.shops,
+isLoadingShops: shopProvider.isLoading,
 );
 },
 ),
@@ -103,7 +122,10 @@ color: Colors.red,
 size: 48,
 ),
 const SizedBox(height: 12),
-Text(message, textAlign: TextAlign.center),
+Text(
+message,
+textAlign: TextAlign.center,
+),
 const SizedBox(height: 12),
 ElevatedButton(
 onPressed: () {
@@ -151,54 +173,79 @@ textAlign: TextAlign.center,
 }
 }
 
-class _ComplaintCard extends StatefulWidget {
+class _ComplaintCard extends StatelessWidget {
 final Complaint complaint;
 final String formattedDate;
+final List<Shop> shops;
+final bool isLoadingShops;
 
 const _ComplaintCard({
+super.key,
 required this.complaint,
 required this.formattedDate,
+required this.shops,
+required this.isLoadingShops,
 });
 
-@override
-State<_ComplaintCard> createState() => _ComplaintCardState();
+String _getShopName() {
+if (complaint.shopId.isEmpty) {
+return 'Unknown Shop';
 }
 
-class _ComplaintCardState extends State<_ComplaintCard> {
-final FirestoreService _firestoreService = FirestoreService();
-
-String _shopName = 'Loading shop...';
-
-@override
-void initState() {
-super.initState();
-_loadShopName();
+for (final shop in shops) {
+if (shop.id == complaint.shopId) {
+return shop.name;
+}
 }
 
-Future<void> _loadShopName() async {
-if (widget.complaint.shopId.isEmpty) {
-setState(() => _shopName = 'Unknown Shop');
-return;
+if (isLoadingShops) {
+return 'Loading shop...';
 }
 
-try {
-final name =
-await _firestoreService.getShopName(widget.complaint.shopId);
+return 'Shop not found';
+}
 
-if (mounted) {
-setState(() => _shopName = name);
+String _formatStatus(String status) {
+if (status.trim().isEmpty) {
+return 'Submitted';
 }
-} catch (_) {
-if (mounted) {
-setState(() => _shopName = 'Unable to load shop name');
+
+return status
+    .replaceAll('_', ' ')
+    .split(' ')
+    .map(
+(word) => word.isEmpty
+? word
+    : '${word[0].toUpperCase()}'
+'${word.substring(1).toLowerCase()}',
+)
+    .join(' ');
 }
+
+Color _statusColor(String status) {
+switch (status.toLowerCase()) {
+case 'resolved':
+case 'approved':
+case 'closed':
+return Colors.green;
+
+case 'rejected':
+case 'dismissed':
+return Colors.red;
+
+case 'under_review':
+case 'in_progress':
+return Colors.blue;
+
+default:
+return Colors.orange;
 }
 }
 
 @override
 Widget build(BuildContext context) {
-final complaint = widget.complaint;
 final color = _statusColor(complaint.status);
+final shopName = _getShopName();
 
 return Card(
 margin: const EdgeInsets.only(bottom: 16),
@@ -245,7 +292,27 @@ fontWeight: FontWeight.bold,
 ],
 ),
 const SizedBox(height: 12),
-Text('Shop: $_shopName'),
+Row(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+const Text(
+'Shop: ',
+style: TextStyle(
+fontWeight: FontWeight.w600,
+),
+),
+Expanded(
+child: Text(
+shopName,
+style: TextStyle(
+color: shopName == 'Shop not found'
+? Colors.grey
+    : null,
+),
+),
+),
+],
+),
 const SizedBox(height: 8),
 Text(complaint.details),
 const SizedBox(height: 12),
@@ -258,7 +325,7 @@ color: Colors.grey,
 ),
 const SizedBox(width: 6),
 Text(
-widget.formattedDate,
+formattedDate,
 style: const TextStyle(
 color: Colors.grey,
 fontSize: 12,
@@ -270,36 +337,5 @@ fontSize: 12,
 ),
 ),
 );
-}
-
-String _formatStatus(String status) {
-if (status.trim().isEmpty) return 'Submitted';
-
-return status
-    .replaceAll('_', ' ')
-    .split(' ')
-    .map(
-(word) => word.isEmpty
-? word
-    : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
-)
-    .join(' ');
-}
-
-Color _statusColor(String status) {
-switch (status.toLowerCase()) {
-case 'resolved':
-case 'approved':
-case 'closed':
-return Colors.green;
-case 'rejected':
-case 'dismissed':
-return Colors.red;
-case 'under_review':
-case 'in_progress':
-return Colors.blue;
-default:
-return Colors.orange;
-}
 }
 }

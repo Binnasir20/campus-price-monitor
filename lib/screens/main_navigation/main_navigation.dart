@@ -124,7 +124,7 @@ class _MainNavigationState extends State<MainNavigation> {
               label: 'Shops',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.shopping_cart_outlined),
+              icon: Icon(IconlyLight.buy),
               activeIcon: Icon(Icons.shopping_cart),
               label: 'Purchase',
             ),

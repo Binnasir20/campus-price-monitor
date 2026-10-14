@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:campus_price_monitor/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,16 +11,14 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../model/shop_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../services/location_service.dart';
 
 class ShopMapScreen extends StatefulWidget {
   final Shop? initialShop;
 
-  const ShopMapScreen({
-    super.key,
-    this.initialShop,
-  });
+  const ShopMapScreen({super.key, this.initialShop});
 
   @override
   State<ShopMapScreen> createState() => _ShopMapScreenState();
@@ -50,10 +51,8 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
 
       if (!mounted) return;
 
-      final shop = widget.initialShop;
-
-      if (shop != null) {
-        await _startNavigation(shop);
+      if (widget.initialShop != null) {
+        await _startNavigation(widget.initialShop!);
       }
     });
   }
@@ -127,36 +126,37 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     }
   }
 
-  // Keep the user's location updated while the screen is open.
+  // Keep the user's position and movement direction updated.
   void _startLocationUpdates() {
     _positionSubscription?.cancel();
 
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen(
-          (Position position) {
-        if (!mounted) return;
+    _positionSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 3,
+          ),
+        ).listen(
+          (position) {
+            if (!mounted) return;
 
-        setState(() {
-          _currentPosition = position;
-        });
+            setState(() {
+              _currentPosition = position;
+            });
 
-        if (_selectedShop != null &&
-            _navigationRoute != null &&
-            !_isCalculatingRoute) {
-          _updateRoute(position);
-        }
-      },
-      onError: (Object error) {
-        debugPrint('Location stream error: $error');
-      },
-    );
+            if (_selectedShop != null &&
+                _navigationRoute != null &&
+                !_isCalculatingRoute) {
+              _updateRoute(position);
+            }
+          },
+          onError: (Object error) {
+            debugPrint('Location stream error: $error');
+          },
+        );
   }
 
-  // Recalculate the route when the user moves significantly.
+  // Recalculate the route when the user moves.
   Future<void> _updateRoute(Position position) async {
     final shop = _selectedShop;
 
@@ -218,11 +218,8 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     if (!_mapReady) return;
 
     _mapController.move(
-      LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      ),
-      16,
+      LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+      17,
     );
   }
 
@@ -233,13 +230,8 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     final shops = context.read<ShopProvider>().shops;
 
     final locations = shops
-        .where(
-          (shop) =>
-      shop.latitude != null && shop.longitude != null,
-    )
-        .map(
-          (shop) => LatLng(shop.latitude!, shop.longitude!),
-    )
+        .where((shop) => shop.latitude != null && shop.longitude != null)
+        .map((shop) => LatLng(shop.latitude!, shop.longitude!))
         .toList();
 
     if (locations.isEmpty) {
@@ -250,10 +242,7 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
       _mapController.move(
         _currentPosition == null
             ? _campusCenter
-            : LatLng(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-        ),
+            : LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
         14,
       );
 
@@ -262,10 +251,7 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
 
     if (_currentPosition != null) {
       locations.add(
-        LatLng(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-        ),
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
       );
     }
 
@@ -275,10 +261,10 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     double maxLng = locations.first.longitude;
 
     for (final location in locations) {
-      if (location.latitude < minLat) minLat = location.latitude;
-      if (location.latitude > maxLat) maxLat = location.latitude;
-      if (location.longitude < minLng) minLng = location.longitude;
-      if (location.longitude > maxLng) maxLng = location.longitude;
+      minLat = math.min(minLat, location.latitude);
+      maxLat = math.max(maxLat, location.latitude);
+      minLng = math.min(minLng, location.longitude);
+      maxLng = math.max(maxLng, location.longitude);
     }
 
     if ((maxLat - minLat).abs() < 0.002) {
@@ -293,16 +279,13 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
 
     _mapController.fitCamera(
       CameraFit.bounds(
-        bounds: LatLngBounds(
-          LatLng(minLat, minLng),
-          LatLng(maxLat, maxLng),
-        ),
+        bounds: LatLngBounds(LatLng(minLat, minLng), LatLng(maxLat, maxLng)),
         padding: const EdgeInsets.all(60),
       ),
     );
   }
 
-  // Calculate and display a route to a selected shop.
+  // Navigate to a selected shop.
   Future<void> _startNavigation(Shop shop) async {
     if (shop.latitude == null || shop.longitude == null) {
       _showMessage('This shop has no saved coordinates.');
@@ -320,15 +303,13 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     try {
       Position? position = _currentPosition;
 
-      if (position == null) {
-        position = await LocationService.getCurrentLocation();
-      }
+      position ??= await LocationService.getCurrentLocation();
 
       if (!mounted) return;
 
       if (position == null) {
         throw Exception(
-          'Your current location is unavailable. Enable location services and try again.',
+          'Your location is unavailable. Enable location services and try again.',
         );
       }
 
@@ -379,7 +360,6 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     }
   }
 
-  // Stop in-app navigation.
   void _stopNavigation() {
     setState(() {
       _selectedShop = null;
@@ -387,15 +367,13 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     });
   }
 
-  // Display information about a shop.
+  // Show information about a shop.
   void _showShopDetails(Shop shop) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
         double? distance;
@@ -430,18 +408,11 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                       ),
                     ),
                     if (shop.isVerified)
-                      const Icon(
-                        Icons.verified,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
+                      const Icon(Icons.verified, color: Colors.blue, size: 20),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  shop.location,
-                  style: const TextStyle(color: Colors.grey),
-                ),
+                Text(shop.location, style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 4),
                 Text('Campus: ${shop.campus}'),
                 if (distance != null)
@@ -462,9 +433,9 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                     onPressed: _isCalculatingRoute
                         ? null
                         : () {
-                      Navigator.pop(sheetContext);
-                      _startNavigation(shop);
-                    },
+                            Navigator.pop(sheetContext);
+                            _startNavigation(shop);
+                          },
                     icon: const Icon(Icons.navigation),
                     label: const Text('NAVIGATE'),
                     style: ElevatedButton.styleFrom(
@@ -489,26 +460,18 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
         content: Text(message),
         action: retry == null
             ? null
-            : SnackBarAction(
-          label: 'RETRY',
-          onPressed: retry,
-        ),
+            : SnackBarAction(label: 'RETRY', onPressed: retry),
       ),
     );
   }
 
-  // Small reusable message card.
   Widget _messageCard(Widget leading, String message) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Center(child: leading),
-            ),
+            SizedBox(width: 22, height: 22, child: Center(child: leading)),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
           ],
@@ -517,12 +480,61 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
     );
   }
 
+  // Build the user's profile image or green walking-person marker.
+  Widget _buildUserMarker() {
+    final user = context.watch<AuthProvider>().userModel;
+
+    final localPath = user?.localProfileImagePath;
+    final remoteUrl = user?.profileImageUrl;
+
+    ImageProvider? image;
+
+    if (localPath != null && localPath.isNotEmpty) {
+      final file = File(localPath);
+
+      if (file.existsSync()) {
+        image = FileImage(file);
+      }
+    }
+
+    if (image == null && remoteUrl != null && remoteUrl.isNotEmpty) {
+      image = NetworkImage(remoteUrl);
+    }
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.green,
+        border: Border.all(color: Colors.white, width: 3),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 5, offset: Offset(0, 2)),
+        ],
+      ),
+      child: ClipOval(
+        child: image != null
+            ? Image(
+                image: image,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const _WalkingPersonIcon();
+                },
+              )
+            : const _WalkingPersonIcon(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Shop Map'),
-        backgroundColor: Colors.green,
+        title: const Text('Shop Map',style: TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.bold
+        ),),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -530,13 +542,13 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
             onPressed: _isGettingLocation ? null : _goToMyLocation,
             icon: _isGettingLocation
                 ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : const Icon(Icons.my_location),
           ),
         ],
@@ -545,32 +557,74 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
         builder: (context, shopProvider, child) {
           final markers = <Marker>[];
 
-          // Shop markers.
-          for (final shop in shopProvider.shops) {
-            if (shop.latitude == null || shop.longitude == null) {
-              continue;
-            }
 
-            markers.add(
-              Marker(
-                point: LatLng(shop.latitude!, shop.longitude!),
-                width: 45,
-                height: 55,
-                child: GestureDetector(
-                  onTap: () => _showShopDetails(shop),
-                  child: Icon(
-                    Icons.location_on,
-                    color: _selectedShop?.id == shop.id
-                        ? Colors.green
-                        : Colors.red,
-                    size: 45,
-                  ),
-                ),
-              ),
-            );
+// Shop markers with names displayed above them.
+          for (final shop in shopProvider.shops) {
+          if (shop.latitude == null || shop.longitude == null) {
+          continue;
           }
 
-          // Current location marker.
+          markers.add(
+          Marker(
+          point: LatLng(shop.latitude!, shop.longitude!),
+          width: 150,
+          height: 85,
+          alignment: Alignment.bottomCenter,
+          child: GestureDetector(
+          onTap: () => _showShopDetails(shop),
+          child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+          // Always display the shop name.
+          Container(
+          constraints: const BoxConstraints(maxWidth: 145),
+          padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 4,
+          ),
+          decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: const [
+          BoxShadow(
+          color: Colors.black26,
+          blurRadius: 3,
+          offset: Offset(0, 1),
+          ),
+          ],
+          ),
+          child: Text(
+          "${shop.name}'s store",
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+          ),
+          ),
+          ),
+
+          // Shop location icon.
+          Icon(
+          Icons.location_on,
+          color: _selectedShop?.id == shop.id
+          ? Colors.green
+              : Colors.red,
+          size: 40,
+          ),
+          ],
+          ),
+          ),
+          ),
+          );
+          }
+
+
+          // User marker follows the current GPS position.
           if (_currentPosition != null) {
             markers.add(
               Marker(
@@ -578,12 +632,18 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                   _currentPosition!.latitude,
                   _currentPosition!.longitude,
                 ),
-                width: 50,
-                height: 50,
-                child: const Icon(
-                  Icons.my_location,
-                  color: Colors.blue,
-                  size: 35,
+                width: 52,
+                height: 62,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Transform.rotate(
+                      angle: _currentPosition!.heading.isFinite
+                          ? _currentPosition!.heading * math.pi / 180
+                          : 0,
+                      child: _buildUserMarker(),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -604,12 +664,7 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                       _mapController.fitCamera(
                         CameraFit.coordinates(
                           coordinates: _navigationRoute!.points,
-                          padding: const EdgeInsets.fromLTRB(
-                            40,
-                            100,
-                            40,
-                            220,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(40, 100, 40, 220),
                         ),
                       );
                     } else if (_currentPosition != null) {
@@ -628,12 +683,9 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                 children: [
                   TileLayer(
                     urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName:
-                    'com.example.campus_price_monitor',
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.campus_price_monitor',
                   ),
-
-                  // Draw the calculated route.
                   if (_navigationRoute != null)
                     PolylineLayer(
                       polylines: [
@@ -646,9 +698,7 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                         ),
                       ],
                     ),
-
                   MarkerLayer(markers: markers),
-
                   RichAttributionWidget(
                     attributions: [
                       TextSourceAttribution(
@@ -691,24 +741,16 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.route,
-                                color: Colors.blue,
-                              ),
+                              const Icon(Icons.route, color: Colors.blue),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '${_navigationRoute!.distanceInKilometres.toStringAsFixed(2)} km',
                                 ),
                               ),
-                              const Icon(
-                                Icons.schedule,
-                                color: Colors.blue,
-                              ),
+                              const Icon(Icons.schedule, color: Colors.blue),
                               const SizedBox(width: 8),
-                              Text(
-                                '${_navigationRoute!.estimatedMinutes} min',
-                              ),
+                              Text('${_navigationRoute!.estimatedMinutes} min'),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -726,7 +768,6 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                   ),
                 ),
 
-              // Location loading message.
               if (_isGettingLocation)
                 Positioned(
                   top: 12,
@@ -738,7 +779,6 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                   ),
                 ),
 
-              // Route calculation message.
               if (_isCalculatingRoute)
                 Positioned(
                   top: 75,
@@ -750,7 +790,6 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                   ),
                 ),
 
-              // Location error message.
               if (_hasAttemptedLocation && _currentPosition == null)
                 Positioned(
                   top: 12,
@@ -769,7 +808,7 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
                           const Expanded(
                             child: Text(
                               'Your location is unavailable. '
-                                  'Shop markers can still be viewed.',
+                              'Shop markers can still be viewed.',
                             ),
                           ),
                           TextButton(
@@ -807,6 +846,21 @@ class _ShopMapScreenState extends State<ShopMapScreen> {
             child: const Icon(Icons.store),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Green walking-person icon used when no profile picture is available.
+class _WalkingPersonIcon extends StatelessWidget {
+  const _WalkingPersonIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Colors.green,
+      child: Center(
+        child: Icon(Icons.directions_walk, color: Colors.white, size: 30),
       ),
     );
   }

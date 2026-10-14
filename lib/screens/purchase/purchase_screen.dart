@@ -1,7 +1,7 @@
+import 'package:campus_price_monitor/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../model/item_model.dart';
 import '../../model/shop_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/item_provider.dart';
@@ -10,7 +10,6 @@ import '../../providers/price_provider.dart';
 import '../../providers/purchase_provider.dart';
 
 import 'purchase_history_screen.dart';
-import 'price_alert_screen.dart';
 
 class PurchaseScreen extends StatefulWidget {
   const PurchaseScreen({super.key});
@@ -34,9 +33,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _loadData();
-      }
+      if (mounted) _loadData();
     });
   }
 
@@ -49,40 +46,34 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
   }
 
   Future<void> _loadData() async {
-    final authProvider = context.read<AuthProvider>();
-    final itemProvider = context.read<ItemProvider>();
-    final shopProvider = context.read<ShopProvider>();
-    final priceProvider = context.read<PriceProvider>();
-    final purchaseProvider = context.read<PurchaseProvider>();
-
-    final user = authProvider.userModel;
+    final auth = context.read<AuthProvider>();
+    final user = auth.userModel;
 
     if (user == null) return;
 
     try {
-      await itemProvider.fetchItems();
-
+      await context.read<ItemProvider>().fetchItems();
       if (!mounted) return;
 
-      await shopProvider.fetchShopsByUniversity(
+      await context.read<ShopProvider>().fetchShopsByUniversity(
         user.university,
         user.uid,
         isAdmin: user.isAdmin,
       );
-
       if (!mounted) return;
 
-      await priceProvider.fetchPricesByUniversity(user.university);
-
+      await context.read<PriceProvider>().fetchPricesByUniversity(
+        user.university,
+      );
       if (!mounted) return;
 
       if (user.isAdmin) {
-        await purchaseProvider.fetchUniversityPurchases(user.university);
-
-        if (!mounted) return;
+        await context.read<PurchaseProvider>().fetchUniversityPurchases(
+          user.university,
+        );
       }
 
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Could not load purchase data: $e');
 
@@ -92,19 +83,13 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     }
   }
 
-  double get _quantity {
-    return double.tryParse(_quantityController.text.trim()) ?? 0;
-  }
+  double get _quantity => double.tryParse(_quantityController.text.trim()) ?? 0;
 
-  double get _unitPrice {
-    return double.tryParse(_priceController.text.trim()) ?? 0;
-  }
+  double get _unitPrice => double.tryParse(_priceController.text.trim()) ?? 0;
 
   double get _totalAmount => _quantity * _unitPrice;
 
-  String _formatCurrency(double amount) {
-    return '₦${amount.toStringAsFixed(2)}';
-  }
+  String _formatCurrency(double amount) => '₦${amount.toStringAsFixed(2)}';
 
   void _showMessage(String message) {
     if (!mounted) return;
@@ -116,7 +101,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
 
   Future<void> _makePurchase() async {
     if (_isProcessing) return;
-
     if (!_formKey.currentState!.validate()) return;
 
     final user = context.read<AuthProvider>().userModel;
@@ -131,56 +115,47 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     final quantity = _quantity;
     final unitPrice = _unitPrice;
 
-    // Use an existing admin-listed item's ID only when its name matches.
-    // Otherwise, the purchase receives a custom ID.
     final items = context.read<ItemProvider>().items;
 
     final matchingItems = items.where(
-          (item) => item.name.trim().toLowerCase() == itemName.toLowerCase(),
+      (item) => item.name.trim().toLowerCase() == itemName.toLowerCase(),
     );
 
-    final String itemId = matchingItems.isNotEmpty
+    final itemId = matchingItems.isNotEmpty
         ? matchingItems.first.id
         : 'custom_${DateTime.now().microsecondsSinceEpoch}';
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Confirm Demo Purchase'),
-          content: Text(
-            'Item: $itemName\n'
-                'Shop: ${shop.name}\n'
-                'Quantity: $quantity\n'
-                'Unit price: ${_formatCurrency(unitPrice)}\n'
-                'Total: ${_formatCurrency(quantity * unitPrice)}\n\n'
-                'This is a demo transaction. No real money will be transferred.',
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm Demo Purchase'),
+        content: Text(
+          'Item: $itemName\n'
+          'Shop: ${shop.name}\n'
+          'Quantity: $quantity\n'
+          'Unit price: ${_formatCurrency(unitPrice)}\n'
+          'Total: ${_formatCurrency(quantity * unitPrice)}\n\n'
+          'This is a demo transaction. No real money will be transferred.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
     );
 
     if (!mounted || confirmed != true) return;
 
-    setState(() {
-      _isProcessing = true;
-    });
-
-    final purchaseProvider = context.read<PurchaseProvider>();
-    final availablePrices = context.read<PriceProvider>().prices;
+    setState(() => _isProcessing = true);
 
     try {
-      final success = await purchaseProvider.makeDemoPurchase(
+      final success = await context.read<PurchaseProvider>().makeDemoPurchase(
         studentId: user.uid,
         studentName: user.name,
         university: user.university,
@@ -192,7 +167,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
         quantity: quantity,
         unit: 'unit',
         unitPrice: unitPrice,
-        availablePrices: availablePrices,
+        availablePrices: context.read<PriceProvider>().prices,
       );
 
       if (!mounted) return;
@@ -203,26 +178,28 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
         _priceController.clear();
 
         setState(() {});
-
         _showMessage('Demo purchase saved successfully.');
       } else {
         _showMessage(
-          purchaseProvider.errorMessage ?? 'Could not save the purchase.',
+          context.read<PurchaseProvider>().errorMessage ??
+              'Could not save the purchase.',
         );
       }
     } catch (e) {
       debugPrint('Purchase error: $e');
-
-      if (mounted) {
-        _showMessage('Purchase failed. Please try again.');
-      }
+      _showMessage('Purchase failed. Please try again.');
     } finally {
       if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
       }
     }
+  }
+
+  OutlineInputBorder _inputBorder() {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: BorderSide(color: AppColors.primary),
+    );
   }
 
   @override
@@ -235,22 +212,23 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
       );
     }
 
-    if (user.isAdmin) {
-      return _buildAdminScreen();
-    }
-
-    return _buildStudentScreen();
+    return user.isAdmin ? _buildAdminScreen() : _buildStudentScreen();
   }
 
-  // ============================================================
   // STUDENT SCREEN
-  // ============================================================
 
   Widget _buildStudentScreen() {
     final shops = context.watch<ShopProvider>().shops;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Demo Purchase')),
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+          title: const Text('Demo Purchase',
+            style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 17,
+              color: Colors.white
+      ),)),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -265,17 +243,17 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
 
               TextFormField(
                 controller: _itemNameController,
-                decoration: const InputDecoration(
+                decoration:  InputDecoration(
                   labelText: 'Item name',
                   hintText: 'e.g. Rice, Beans, Exercise Book',
                   prefixIcon: Icon(Icons.shopping_bag_outlined),
-                  border: OutlineInputBorder(),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Enter an item name.';
                   }
-
                   return null;
                 },
               ),
@@ -285,30 +263,23 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
               DropdownButtonFormField<Shop>(
                 initialValue: _selectedShop,
                 isExpanded: true,
-                decoration: const InputDecoration(
+                decoration:  InputDecoration(
                   labelText: 'Select shop',
                   prefixIcon: Icon(Icons.store_outlined),
-                  border: OutlineInputBorder(),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder()
                 ),
                 items: shops.map((shop) {
                   return DropdownMenuItem<Shop>(
                     value: shop,
-                    child: Text(
-                      shop.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(shop.name, overflow: TextOverflow.ellipsis),
                   );
                 }).toList(),
                 onChanged: (shop) {
-                  setState(() {
-                    _selectedShop = shop;
-                  });
+                  setState(() => _selectedShop = shop);
                 },
                 validator: (shop) {
-                  if (shop == null) {
-                    return 'Select a shop.';
-                  }
-
+                  if (shop == null) return 'Select a shop.';
                   return null;
                 },
               ),
@@ -320,21 +291,19 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Quantity',
                   prefixIcon: Icon(Icons.numbers),
-                  border: OutlineInputBorder(),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder()
                 ),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final quantity = double.tryParse(value ?? '');
 
-                  if (quantity == null ||
-                      !quantity.isFinite ||
-                      quantity <= 0) {
+                  if (quantity == null || !quantity.isFinite || quantity <= 0) {
                     return 'Enter a valid quantity.';
                   }
-
                   return null;
                 },
               ),
@@ -346,22 +315,20 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Unit price (₦)',
                   prefixIcon: Icon(Icons.payments_outlined),
-                  border: OutlineInputBorder(),
+                  border: _inputBorder(),
+                  focusedBorder: _inputBorder(),
                   helperText: 'Enter the price paid per unit.',
                 ),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
                   final price = double.tryParse(value ?? '');
 
-                  if (price == null ||
-                      !price.isFinite ||
-                      price <= 0) {
+                  if (price == null || !price.isFinite || price <= 0) {
                     return 'Enter a valid price.';
                   }
-
                   return null;
                 },
               ),
@@ -373,10 +340,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _summaryRow(
-                        'Unit price',
-                        _formatCurrency(_unitPrice),
-                      ),
+                      _summaryRow('Unit price', _formatCurrency(_unitPrice)),
                       const SizedBox(height: 12),
                       _summaryRow('Quantity', _quantity.toString()),
                       const Divider(height: 24),
@@ -398,45 +362,33 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
                   onPressed: _isProcessing ? null : _makePurchase,
                   icon: _isProcessing
                       ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.shopping_cart_outlined),
                   label: Text(
-                    _isProcessing
-                        ? 'Processing...'
-                        : 'Record Demo Purchase',
+                    _isProcessing ? 'Processing...' : 'Record Demo Purchase',
                   ),
                 ),
               ),
 
               const SizedBox(height: 12),
 
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PurchaseHistoryScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.receipt_long_outlined),
-                label: const Text('My Purchase History'),
-              ),
-
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PriceAlertScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text('Price Alerts'),
+              SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PurchaseHistoryScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('My Purchase History'),
+                ),
               ),
             ],
           ),
@@ -445,11 +397,7 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     );
   }
 
-  Widget _summaryRow(
-      String label,
-      String value, {
-        bool bold = false,
-      }) {
+  Widget _summaryRow(String label, String value, {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -470,14 +418,10 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
     );
   }
 
-  // ============================================================
   // ADMIN SCREEN
-  // ============================================================
 
   Widget _buildAdminScreen() {
-    final purchases =
-        context.watch<PurchaseProvider>().universityPurchases;
-
+    final purchases = context.watch<PurchaseProvider>().universityPurchases;
     final items = context.watch<ItemProvider>().items;
     final prices = context.watch<PriceProvider>().prices;
     final user = context.watch<AuthProvider>().userModel;
@@ -495,7 +439,6 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
       ),
       body: Column(
         children: [
-          // Total purchases counter.
           Card(
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: ListTile(
@@ -510,140 +453,125 @@ class _PurchaseScreenState extends State<PurchaseScreen> {
             ),
           ),
 
-          // Purchase list.
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadData,
               child: purchases.isEmpty
                   ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 100),
-                  Icon(
-                    Icons.receipt_long_outlined,
-                    size: 56,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Center(
-                    child: Text('No purchases recorded yet.'),
-                  ),
-                ],
-              )
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 100),
+                        Icon(
+                          Icons.receipt_long_outlined,
+                          size: 56,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: 16),
+                        Center(child: Text('No purchases recorded yet.')),
+                      ],
+                    )
                   : ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                itemCount: purchases.length,
-                itemBuilder: (context, index) {
-                  final purchase = purchases[index];
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: purchases.length,
+                      itemBuilder: (context, index) {
+                        final purchase = purchases[index];
 
-                  // Check whether this item actually exists in the
-                  // admin's item list. Custom IDs are ignored.
-                  final isAdminListed = items.any(
-                        (item) => item.id == purchase.itemId,
-                  );
+                        final isAdminListed = items.any(
+                          (item) => item.id == purchase.itemId,
+                        );
 
-                  // Find reference prices for the same item, shop,
-                  // and university.
-                  final matchingPrices = prices.where(
-                        (price) =>
-                    price.itemId == purchase.itemId &&
-                        price.shopId == purchase.shopId &&
-                        price.university == user?.university &&
-                        price.price > 0,
-                  ).toList();
+                        final matchingPrices = prices
+                            .where(
+                              (price) =>
+                                  price.itemId == purchase.itemId &&
+                                  price.shopId == purchase.shopId &&
+                                  price.university == user?.university &&
+                                  price.price > 0,
+                            )
+                            .toList();
 
-                  // Use the most recently updated matching price.
-                  matchingPrices.sort(
-                        (a, b) => b.updatedAt.compareTo(a.updatedAt),
-                  );
+                        matchingPrices.sort(
+                          (a, b) => b.updatedAt.compareTo(a.updatedAt),
+                        );
 
-                  final double? referencePrice =
-                  isAdminListed && matchingPrices.isNotEmpty
-                      ? matchingPrices.first.price
-                      : null;
+                        final double? referencePrice =
+                            isAdminListed && matchingPrices.isNotEmpty
+                            ? matchingPrices.first.price
+                            : null;
 
-                  // Compare unit price, not total purchase amount.
-                  final isOverpriced = referencePrice != null &&
-                      purchase.unitPrice > referencePrice;
+                        final isOverpriced =
+                            referencePrice != null &&
+                            purchase.unitPrice > referencePrice;
 
-                  final cardColor = isOverpriced
-                      ? Colors.red.withValues(alpha: 0.10)
-                      : null;
-
-                  final borderColor = isOverpriced
-                      ? Colors.red
-                      : Colors.transparent;
-
-                  return Card(
-                    color: cardColor,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: borderColor,
-                        width: isOverpriced ? 1.5 : 0,
-                      ),
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                        isOverpriced
-                            ? Icons.warning_amber_rounded
-                            : Icons.shopping_bag_outlined,
-                        color: isOverpriced ? Colors.red : null,
-                      ),
-                      title: Text(
-                        purchase.itemName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isOverpriced ? Colors.red : null,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Student: ${purchase.studentName}'),
-                          Text('Shop: ${purchase.shopName}'),
-                          Text('Quantity: ${purchase.quantity}'),
-                          Text(
-                            'Unit price: '
-                                '${_formatCurrency(purchase.unitPrice)}',
+                        return Card(
+                          color: isOverpriced
+                              ? Colors.red.withValues(alpha: 0.10)
+                              : null,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isOverpriced
+                                  ? Colors.red
+                                  : Colors.transparent,
+                              width: isOverpriced ? 1.5 : 0,
+                            ),
                           ),
-                          Text(
-                            'Date: ${purchase.purchasedAt.toLocal()}',
-                          ),
-
-                          if (isOverpriced) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'PRICE EXCEEDED ADMIN SET PRICE',
-                              style: const TextStyle(
-                                color: Colors.red,
+                          child: ListTile(
+                            leading: Icon(
+                              isOverpriced
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.shopping_bag_outlined,
+                              color: isOverpriced ? Colors.red : null,
+                            ),
+                            title: Text(
+                              purchase.itemName,
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
+                                color: isOverpriced ? Colors.red : null,
                               ),
                             ),
-                            Text(
-                              'Reference price: '
-                                  '${_formatCurrency(referencePrice!)}',
-                              style: const TextStyle(
-                                color: Colors.red,
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Student: ${purchase.studentName}'),
+                                Text('Shop: ${purchase.shopName}'),
+                                Text('Quantity: ${purchase.quantity}'),
+                                Text(
+                                  'Unit price: '
+                                  '${_formatCurrency(purchase.unitPrice)}',
+                                ),
+                                Text('Date: ${purchase.purchasedAt.toLocal()}'),
+                                if (isOverpriced) ...[
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'PRICE EXCEEDED ADMIN SET PRICE',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Reference price: '
+                                    '${_formatCurrency(referencePrice!)}',
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            isThreeLine: true,
+                            trailing: Text(
+                              _formatCurrency(purchase.totalAmount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isOverpriced ? Colors.red : null,
                               ),
                             ),
-                          ],
-                        ],
-                      ),
-                      isThreeLine: true,
-                      trailing: Text(
-                        _formatCurrency(purchase.totalAmount),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isOverpriced ? Colors.red : null,
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
         ],
